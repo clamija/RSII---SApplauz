@@ -1,0 +1,24 @@
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY ["SApplauz.API/SApplauz.API.csproj", "SApplauz.API/"]
+COPY ["SApplauz.Application/SApplauz.Application.csproj", "SApplauz.Application/"]
+COPY ["SApplauz.Infrastructure/SApplauz.Infrastructure.csproj", "SApplauz.Infrastructure/"]
+COPY ["SApplauz.Domain/SApplauz.Domain.csproj", "SApplauz.Domain/"]
+COPY ["SApplauz.Shared/SApplauz.Shared.csproj", "SApplauz.Shared/"]
+RUN dotnet restore "SApplauz.API/SApplauz.API.csproj"
+COPY . .
+WORKDIR "/src/SApplauz.API"
+RUN dotnet build "SApplauz.API.csproj" -c Release -o /app/build
+
+FROM build AS publish
+RUN dotnet publish "SApplauz.API.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+FROM base AS final
+WORKDIR /app
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "SApplauz.API.dll"]
+

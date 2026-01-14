@@ -1,0 +1,102 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file('local.properties')
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withReader('UTF-8') { reader ->
+        localProperties.load(reader)
+    }
+}
+
+def flutterRoot = localProperties.getProperty('flutter.sdk')
+if (flutterRoot == null) {
+    throw new GradleException("Flutter SDK not found. Define location with flutter.sdk in the local.properties file.")
+}
+
+def flutterVersionCode = localProperties.getProperty('flutter.versionCode')
+if (flutterVersionCode == null) {
+    flutterVersionCode = '1'
+}
+
+def flutterVersionName = localProperties.getProperty('flutter.versionName')
+if (flutterVersionName == null) {
+    flutterVersionName = '1.0'
+}
+
+android {
+    namespace "com.sapplauz.mobile"
+    compileSdk 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
+    defaultConfig {
+        applicationId "com.sapplauz.mobile"
+        minSdkVersion flutter.minSdkVersion
+        targetSdkVersion 36
+        versionCode flutterVersionCode.toInteger()
+        versionName flutterVersionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            // R8 minifyReleaseWithR8 baca "Missing class" za optional Stripe push provisioning klase.
+            // Pravila su generisana u build_android/app/outputs/mapping/release/missing_rules.txt.
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}
+
+// --- Flutter run workaround (Windows file lock) ---
+// Build output je preusmjeren u ../build_android (vidi android/build.gradle.kts) da zaobiđemo locked folder.
+// Flutter tool ipak očekuje APK u ../build/app/outputs/flutter-apk/app-debug.apk, pa ga kopiramo nakon assembleDebug.
+def flutterExpectedOutDir = new File(rootDir, "../build/app/outputs/flutter-apk")
+
+tasks.register("copyDebugApkToFlutterBuild") {
+    doLast {
+        def candidates = [
+                new File(rootProject.buildDir, "app/outputs/flutter-apk/app-debug.apk"),
+                new File(rootProject.buildDir, "app/outputs/apk/debug/app-debug.apk"),
+                new File(buildDir, "outputs/flutter-apk/app-debug.apk"),
+                new File(buildDir, "outputs/apk/debug/app-debug.apk"),
+        ]
+        def src = candidates.find { it.exists() }
+        if (src == null) {
+            println("copyDebugApkToFlutterBuild: No debug APK found to copy.")
+            candidates.each { println("  looked in: ${it}") }
+            return
+        }
+
+        if (!flutterExpectedOutDir.exists()) {
+            flutterExpectedOutDir.mkdirs()
+        }
+
+        def dest = new File(flutterExpectedOutDir, "app-debug.apk")
+        dest.bytes = src.bytes
+        println("copyDebugApkToFlutterBuild: Copied APK to ${dest}")
+    }
+}
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+    finalizedBy("copyDebugApkToFlutterBuild")
+}

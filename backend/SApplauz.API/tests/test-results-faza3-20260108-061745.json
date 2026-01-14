@@ -1,0 +1,32 @@
+﻿[
+    {
+        "Passed":  false,
+        "Message":  "Status: 400, Error: Maksimalna količina je 20 karata po stavci.",
+        "Test":  "TEST 1: Quantity Validation"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Status: 400, Error: Količina mora biti veća od 0.",
+        "Test":  "TEST 2: Invalid Quantity (0)"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Correctly rejected",
+        "Test":  "TEST 3: Invalid Performance ID"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Order ID: 5",
+        "Test":  "TEST 4: Successful Order Creation"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Correctly empty",
+        "Test":  "TEST 4b: No Tickets Before Payment"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Seats correctly not reserved",
+        "Test":  "TEST 5: AvailableSeats Not Decreased Before Payment"
+    }
+]

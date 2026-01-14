@@ -1,0 +1,101 @@
+﻿[
+    {
+        "Passed":  true,
+        "Message":  "Retrieved 5 genres",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213506)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: GET all genres"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Retrieved genre ID 4",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213552)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: GET genre by ID"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Genre created but message format different: Žanr je uspješno kreiran.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213695)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: CREATE genre"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No genre created to update",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213705)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: UPDATE genre"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No genre created to delete",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213707)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: DELETE genre (bez Shows)"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No shows found to test validation",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213833)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 6: DELETE genre (sa Shows) - validacija"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Retrieved 8 institutions",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213863)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 7: GET all institutions"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Retrieved institution ID 7",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213885)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 8: GET institution by ID"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No shows found to test validation",
+        "Timestamp":  {
+                          "value":  "\/Date(1767884213901)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:56:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 9: DELETE institution (sa Shows) - validacija"
+    }
+]

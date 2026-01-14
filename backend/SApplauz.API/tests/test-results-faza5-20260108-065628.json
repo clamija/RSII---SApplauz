@@ -1,0 +1,90 @@
+﻿[
+    {
+        "Passed":  true,
+        "Message":  "Status property exists: \u0027Dostupno\u0027",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788140)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: PerformanceDto Status Property"
+    },
+    {
+        "Passed":  true,
+        "Message":  "IsCurrentlyShowing property exists: False",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788154)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: PerformanceDto IsCurrentlyShowing Property"
+    },
+    {
+        "Passed":  true,
+        "Message":  "StatusColor property exists: \u0027green\u0027",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788159)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: PerformanceDto StatusColor Property"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No sold-out performances found (AvailableSeats == 0). Logic exists but requires test data.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788196)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: Status - Rasprodano"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No almost sold-out performances found (1-5 seats). Logic exists but requires test data.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788224)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: Status - Posljednja mjesta"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Status: \u0027Dostupno\u0027, Color: \u0027green\u0027 for available performance (seats: 250)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788264)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 6: Status - Dostupno"
+    },
+    {
+        "Passed":  true,
+        "Message":  "IsCurrentlyShowing property is set: False. Logic is implemented (requires manual verification with actual start times).",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788292)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 7: IsCurrentlyShowing Logic"
+    },
+    {
+        "Passed":  true,
+        "Message":  "GetPerformanceByIdAsync returns status properties: Status=\u0027Dostupno\u0027, StatusColor=\u0027green\u0027, IsCurrentlyShowing=False",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851788361)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:56:28"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 8: GetPerformanceByIdAsync Status"
+    }
+]

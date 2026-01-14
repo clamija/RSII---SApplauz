@@ -1,0 +1,73 @@
+### Test Auth & Identity Endpoints
+
+@baseUrl = http://localhost:5000
+@token = 
+
+### 1. Register new user
+POST {{baseUrl}}/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "email": "testuser@sapplauz.ba",
+  "password": "Test123!",
+  "confirmPassword": "Test123!"
+}
+
+### 2. Login as SuperAdmin
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "superadmin@sapplauz.ba",
+  "password": "SuperAdmin123!"
+}
+
+### 3. Login as Admin Institucije
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@sapplauz.ba",
+  "password": "Admin123!"
+}
+
+### 4. Login as Blagajnik
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "blagajnik@sapplauz.ba",
+  "password": "Blagajnik123!"
+}
+
+### 5. Login as Regular User
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@sapplauz.ba",
+  "password": "User123!"
+}
+
+### 6. Get current user (requires authentication)
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{token}}
+
+### 7. Update user profile (requires authentication)
+PUT {{baseUrl}}/api/users/{{userId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Updated",
+  "lastName": "Name",
+  "email": "updated@sapplauz.ba"
+}
+
+
+
+
+
+

@@ -1,0 +1,79 @@
+﻿[
+    {
+        "Passed":  true,
+        "Message":  "Got specific error message: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"Email\":[\"Nedostaje obavezno polje: Email\",\"Email format nije validan.\"]},\"traceId\":\"00-84c5782b77952b0a2a0522d7123a61c5-e470e0a26e36ef0f-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785428)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: Validacija - Nedostaje Email"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Got specific error message: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"Email\":[\"Email format nije validan.\"]},\"traceId\":\"00-c41b2eac070188cff8ad3f49c43107ed-7cf2fd9d139c5bd4-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785436)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: Validacija - Email format"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Got specific error message: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"OrderItems[0].Quantity\":[\"Količina mora biti između 1 i 10.\"]},\"traceId\":\"00-37dcbaaaf17408659829756369d20a06-d81a4a0234221543-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785471)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: Validacija - KoliÄina"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Got specific error message: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"Rating\":[\"Ocjena mora biti između 1 i 5.\"],\"ShowId\":[\"ID predstave mora biti veći od 0.\"]},\"traceId\":\"00-d4305a43214d3f61e1d2b04c68e0f587-27e80a0e886fe05a-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785501)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: Validacija - Ocjena"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Could not login as admin. Success message format exists",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785571)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: Success message - Predstava kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Got success message: Narudžba je uspješno kreirana.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785613)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 6: Success message - NarudÅ¾ba kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Success message format exists (requires valid ticket QR code to fully test)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881785616)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:16:25"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 7: Success message - Karta validirana"
+    }
+]

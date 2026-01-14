@@ -1,0 +1,315 @@
+### FAZA 3: Backend - Real-time provjera dostupnosti i checkout sigurnost - Testovi
+### Napomena: Testovi zahtijevaju da API radi na localhost:5169
+
+@baseUrl = http://localhost:5169/api
+@tokenUser1 = 
+@tokenUser2 = 
+@performanceId = 1
+@institutionId = 1
+@orderId = 
+
+### ============================================================================
+### PRIPREMA: Login za dva korisnika (za race condition test)
+### ============================================================================
+
+### 1. Login kao User 1
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@sapplauz.ba",
+  "password": "User123!"
+}
+
+### 2. Login kao User 2 (kreirajte novog korisnika ako ne postoji)
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User2",
+  "email": "user2@sapplauz.ba",
+  "password": "User123!",
+  "confirmPassword": "User123!"
+}
+
+### 3. Login kao User 2
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "user2@sapplauz.ba",
+  "password": "User123!"
+}
+
+### ============================================================================
+### PRIPREMA: Provjera dostupnih performansi
+### ============================================================================
+
+### 4. Get all performances
+GET {{baseUrl}}/performances
+Authorization: Bearer {{tokenUser1}}
+
+### 5. Get performance by ID (zamijenite sa realnim ID-jem iz baze)
+GET {{baseUrl}}/performances/{{performanceId}}
+Authorization: Bearer {{tokenUser1}}
+
+### ============================================================================
+### TEST 1: Quantity Validation - Pokušaj kupovine više karata nego što ima dostupno
+### ============================================================================
+
+### 6. Test: Pokušaj kupovine 1000 karata kada ima samo 50 dostupno
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 1000
+    }
+  ]
+}
+
+### Očekivano:
+### - Status: 400 Bad Request
+### - Poruka: "Neko je bio brži! Za termin '...' je preostalo samo X mjesta, a vi pokušavate kupiti 1000. Molimo smanjite količinu i pokušajte ponovo."
+
+### ============================================================================
+### TEST 2: Sold Out Scenario - Pokušaj kupovine kada AvailableSeats == 0
+### ============================================================================
+
+### 7. Test: Kupi sve dostupne karte za performance (priprema za sold out test)
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 50
+    }
+  ]
+}
+
+### 8. Test: Nakon što su sve karte kupljene, pokušaj kupovine još jedne
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser2}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 1
+    }
+  ]
+}
+
+### Očekivano:
+### - Status: 400 Bad Request
+### - Poruka: "Termin za predstavu '...' je rasprodan. Nema dostupnih karata."
+
+### ============================================================================
+### TEST 3: Race Condition - Dva korisnika istovremeno kupuju zadnje karte
+### ============================================================================
+
+### 9. PRIPREMA: Reset AvailableSeats na performance (ručno ili kroz admin)
+### Morate ručno postaviti AvailableSeats = 2 za performance {{performanceId}}
+
+### 10. Test: User 1 pokušava kupiti 2 karte (zadnje dostupne)
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 2
+    }
+  ]
+}
+
+### 11. Test: User 2 ISTOVREMENO pokušava kupiti 1 kartu (zadnja dostupna)
+### POKRENITE OVO ISTOVREMENO sa prethodnim pozivom (u drugom terminalu ili REST Client tabu)
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser2}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 1
+    }
+  ]
+}
+
+### Očekivano:
+### - Jedan od zahtjeva će uspjeti, drugi će dobiti grešku
+### - Status: 400 Bad Request
+### - Poruka: "Neko je bio brži! Za termin '...' je preostalo samo X mjesta..."
+
+### ============================================================================
+### TEST 4: Ticket Generation - Provjera da se generiše tačan broj karata
+### ============================================================================
+
+### 12. Test: Kreiraj Order sa 3 karte
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 3
+    }
+  ]
+}
+
+### 13. Get Order sa ID-jem iz prethodnog odgovora
+GET {{baseUrl}}/orders/{{orderId}}
+Authorization: Bearer {{tokenUser1}}
+
+### 14. Get Order Tickets (nakon plaćanja)
+GET {{baseUrl}}/orders/{{orderId}}/tickets
+Authorization: Bearer {{tokenUser1}}
+
+### Očekivano:
+### - Order sa Status = Pending (prije plaćanja, tickets ne postoje)
+### - Nakon plaćanja: 3 tickets sa jedinstvenim QR kodovima
+### - Svi QR kodovi su različiti
+
+### ============================================================================
+### TEST 5: Transaction Rollback - Provjera da se rollback dešava u slučaju greške
+### ============================================================================
+
+### 15. Test: Pokušaj kreirati Order sa nepostojećim Performance ID
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": 99999,
+      "quantity": 1
+    }
+  ]
+}
+
+### Očekivano:
+### - Status: 404 Not Found ili 400 Bad Request
+### - Order se NE kreira u bazi (rollback)
+
+### 16. Test: Pokušaj kreirati Order sa invalid količinom (0)
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 0
+    }
+  ]
+}
+
+### Očekivano:
+### - Status: 400 Bad Request
+### - Poruka: "Količina karata mora biti veća od 0."
+### - Order se NE kreira u bazi
+
+### 17. Test: Pokušaj kreirati Order sa negativnom količinom
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": -1
+    }
+  ]
+}
+
+### Očekivano:
+### - Status: 400 Bad Request
+### - Poruka: "Količina karata mora biti veća od 0."
+### - Order se NE kreira u bazi
+
+### ============================================================================
+### TEST 6: Payment Processing - Race Condition nakon plaćanja
+### ============================================================================
+
+### 18. Test: Kreiraj Order
+POST {{baseUrl}}/orders
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "institutionId": {{institutionId}},
+  "orderItems": [
+    {
+      "performanceId": {{performanceId}},
+      "quantity": 5
+    }
+  ]
+}
+
+### 19. Create Payment Intent (nakon kreiranja Order-a)
+POST {{baseUrl}}/payments/create-intent
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "orderId": {{orderId}}
+}
+
+### 20. Confirm Payment (simulacija uspješnog Stripe plaćanja)
+### Napomena: Ovaj test zahtijeva validan Stripe payment intent ID
+POST {{baseUrl}}/payments/confirm
+Authorization: Bearer {{tokenUser1}}
+Content-Type: application/json
+
+{
+  "orderId": {{orderId}},
+  "paymentIntentId": "pi_test_..."
+}
+
+### Očekivano:
+### - Ako su mjesta dostupna: Order.Status = Paid, Tickets generisani, AvailableSeats smanjen
+### - Ako mjesta više nisu dostupna: Rollback, Payment.Status = Failed, Order.Status = Pending
+### - Poruka: "Neko je bio brži! Plaćanje je uspješno, ali za termin '...' je preostalo samo X mjesta..."
+
+### ============================================================================
+### TEST 7: AvailableSeats Update - Provjera da se AvailableSeats smanjuje nakon plaćanja
+### ============================================================================
+
+### 21. Get Performance prije plaćanja
+GET {{baseUrl}}/performances/{{performanceId}}
+Authorization: Bearer {{tokenUser1}}
+
+### 22. Get Performance nakon plaćanja
+GET {{baseUrl}}/performances/{{performanceId}}
+Authorization: Bearer {{tokenUser1}}
+
+### Očekivano:
+### - AvailableSeats je smanjen za kupljenu količinu
+### - IsSoldOut ili IsAlmostSoldOut status je ažuriran
+

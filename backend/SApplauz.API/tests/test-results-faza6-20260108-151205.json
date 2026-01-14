@@ -1,0 +1,79 @@
+﻿[
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about Email, got: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"$\":[\"The JSON value could not be converted to SApplauz.Shared.DTOs.Auth.RegisterRequest. Path: $ | LineNumber: 0 | BytePositionInLine: 151.\"],\"request\":[\"The request field is required.\"]},\"traceId\":\"00-f91a0d3050b7802d911e0d07fe50cd27-1581735fd322f0cb-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881524864)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:04"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: Validacija - Nedostaje Email"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about email format, got: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"$\":[\"The JSON value could not be converted to SApplauz.Shared.DTOs.Auth.RegisterRequest. Path: $ | LineNumber: 0 | BytePositionInLine: 196.\"],\"request\":[\"The request field is required.\"]},\"traceId\":\"00-f5d8d624dd1248d1ab8581680af61088-2f3dd8c73719dded-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881524873)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:04"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: Validacija - Email format"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Got specific error message: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"$\":[\"The JSON value could not be converted to SApplauz.Shared.DTOs.CreateOrderRequest. Path: $ | LineNumber: 0 | BytePositionInLine: 246.\"],\"request\":[\"The request field is required.\"]},\"traceId\":\"00-46fca7fe3a373b3f7ab210c266a23a83-d1679aff9fa5fe2b-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881524967)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:04"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: Validacija - KoliÄina"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about rating, got: {\"type\":\"https://tools.ietf.org/html/rfc9110#section-15.5.1\",\"title\":\"One or more validation errors occurred.\",\"status\":400,\"errors\":{\"$\":[\"The JSON value could not be converted to SApplauz.Shared.DTOs.CreateReviewRequest. Path: $ | LineNumber: 0 | BytePositionInLine: 95.\"],\"request\":[\"The request field is required.\"]},\"traceId\":\"00-505c2ff715707a402d09a14e03a89759-e259ce016ee39ae0-00\"}",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881524995)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:04"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: Validacija - Ocjena"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Could not login as admin. Success message format exists",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881525060)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:05"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: Success message - Predstava kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Could not create order (may be sold out or other issue). Success message format exists",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881525087)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:05"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 6: Success message - NarudÅ¾ba kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Success message format exists (requires valid ticket QR code to fully test)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881525089)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:12:05"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 7: Success message - Karta validirana"
+    }
+]

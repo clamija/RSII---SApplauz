@@ -1,0 +1,79 @@
+﻿[
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about Email, got: The remote server returned an error: (400) Bad Request.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503047)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: Validacija - Nedostaje Email"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about email format, got: The remote server returned an error: (400) Bad Request.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503056)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: Validacija - Email format"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about quantity, got: The remote server returned an error: (400) Bad Request.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503090)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: Validacija - KoliÄina"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Expected specific error about rating, got: The remote server returned an error: (400) Bad Request.",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503111)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: Validacija - Ocjena"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Could not login as admin. Success message format exists",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503182)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: Success message - Predstava kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Could not create order (may be sold out or other issue). Success message format exists",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503199)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 6: Success message - NarudÅ¾ba kreirana"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Success message format exists (requires valid ticket QR code to fully test)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767881503199)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 15:11:43"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 7: Success message - Karta validirana"
+    }
+]

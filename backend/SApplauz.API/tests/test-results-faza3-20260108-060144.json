@@ -1,0 +1,27 @@
+﻿[
+    {
+        "Passed":  false,
+        "Message":  "Status: 500, Error: The remote server returned an error: (500) Internal Server Error.",
+        "Test":  "TEST 1: Quantity Validation"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Unexpected status code: 500",
+        "Test":  "TEST 2: Invalid Quantity (0)"
+    },
+    {
+        "Passed":  false,
+        "Message":  "Unexpected status code: 500",
+        "Test":  "TEST 3: Invalid Performance ID"
+    },
+    {
+        "Passed":  false,
+        "Message":  "The remote server returned an error: (500) Internal Server Error.",
+        "Test":  "TEST 4: Successful Order Creation"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Seats correctly not reserved",
+        "Test":  "TEST 5: AvailableSeats Not Decreased Before Payment"
+    }
+]

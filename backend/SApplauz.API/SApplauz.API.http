@@ -1,0 +1,6 @@
+@SApplauz.API_HostAddress = http://localhost:5169
+
+GET {{SApplauz.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

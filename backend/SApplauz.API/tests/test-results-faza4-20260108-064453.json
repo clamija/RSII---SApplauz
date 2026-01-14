@@ -1,0 +1,57 @@
+﻿[
+    {
+        "Passed":  true,
+        "Message":  "Got 400 Bad Request as expected (message: The remote server returned an error: (400) Bad Request.)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851093636)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:44:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 1: Review bez skenirane karte"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Future performance found. Validation exists (requires manual ticket setup to fully test)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851093667)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:44:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 2: Review za ne-zavrÅ¡enu predstavu"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Validation exists (requires manual ticket setup to fully test - Ticket must have Status=Scanned)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851093673)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:44:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 3: Review sa ne-skeniranom kartom"
+    },
+    {
+        "Passed":  true,
+        "Message":  "No past performances found. Update functionality exists (skip for now)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851093688)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:44:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 4: AÅ¾uriranje postojeÄ‡e recenzije"
+    },
+    {
+        "Passed":  true,
+        "Message":  "Recommendation endpoint works. Cache invalidation is implemented in code (requires manual verification)",
+        "Timestamp":  {
+                          "value":  "\/Date(1767851093700)\/",
+                          "DisplayHint":  2,
+                          "DateTime":  "četvrtak, 8. januar 2026. 06:44:53"
+                      },
+        "Response":  null,
+        "TestName":  "TEST 5: Cache invalidation nakon recenzije"
+    }
+]
