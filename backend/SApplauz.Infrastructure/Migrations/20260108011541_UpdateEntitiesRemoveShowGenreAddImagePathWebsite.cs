@@ -56,19 +56,9 @@ namespace SApplauz.Infrastructure.Migrations
                 defaultValue: 1);
 
             // Ako postoje postojeći Shows u bazi, postavi GenreId na prvi dostupan Genre (ID: 1)
-            // Ako Genre sa ID 1 ne postoji, kreiraj ga privremeno
+            // NAPOMENA: Ne seedamo "Temporary" žanr. Ako u bazi ne postoji nijedan žanr,
+            // develop okruženje će ga popuniti kroz DatabaseSeeder (SeedGenresAsync).
             migrationBuilder.Sql(@"
-                IF NOT EXISTS (SELECT 1 FROM Genres WHERE Id = 1)
-                BEGIN
-                    IF NOT EXISTS (SELECT 1 FROM Genres WHERE Id = (SELECT MIN(Id) FROM Genres))
-                    BEGIN
-                        SET IDENTITY_INSERT Genres ON;
-                        INSERT INTO Genres (Id, Name, CreatedAt)
-                        VALUES (1, N'Temporary', GETUTCDATE());
-                        SET IDENTITY_INSERT Genres OFF;
-                    END
-                END
-                
                 -- Postavi sve postojeće Shows na GenreId = 1 (ili prvi dostupan Genre)
                 UPDATE Shows SET GenreId = ISNULL((SELECT MIN(Id) FROM Genres), 1) WHERE GenreId IS NULL OR GenreId = 0;
             ");

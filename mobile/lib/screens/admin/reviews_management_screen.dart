@@ -63,45 +63,6 @@ class _ReviewsManagementScreenState extends State<ReviewsManagementScreen> {
     }
   }
 
-  Future<void> _deleteReview(Review review) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Brisanje recenzije'),
-        content: Text('Da li ste sigurni da želite obrisati recenziju korisnika "${review.userName}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Otkaži'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Obriši'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      try {
-        await ApiService.deleteReview(review.id);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Recenzija je uspješno obrisana')),
-          );
-          _loadReviews();
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Greška pri brisanju: ${e.toString()}')),
-          );
-        }
-      }
-    }
-  }
-
   Future<void> _toggleVisibility(Review review) async {
     try {
       await ApiService.updateReviewVisibility(review.id, !review.isVisible);
@@ -272,22 +233,10 @@ class _ReviewsManagementScreenState extends State<ReviewsManagementScreen> {
                                               ],
                                             ),
                                           ),
-                                          const PopupMenuItem(
-                                            value: 'delete',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.delete, size: 20, color: Colors.red),
-                                                SizedBox(width: 8),
-                                                Text('Obriši', style: TextStyle(color: Colors.red)),
-                                              ],
-                                            ),
-                                          ),
                                         ],
                                         onSelected: (value) {
                                           if (value == 'visibility') {
                                             _toggleVisibility(review);
-                                          } else if (value == 'delete') {
-                                            _deleteReview(review);
                                           }
                                         },
                                       ),

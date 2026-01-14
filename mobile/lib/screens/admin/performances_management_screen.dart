@@ -22,6 +22,11 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
   int _currentPage = 1;
   final int _pageSize = 20;
 
+  String _err(Object e) => e
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .trim();
+
   @override
   void initState() {
     super.initState();
@@ -169,7 +174,7 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Greška pri brisanju: ${e.toString()}')),
+            SnackBar(content: Text(_err(e))),
           );
         }
       }
@@ -365,14 +370,10 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
                     }
                   } catch (e) {
                     if (mounted) {
-                      final raw = e.toString();
-                      final msg = raw.replaceFirst('Exception: ', '');
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            msg.contains('U tom terminu pozorište je već zauzeto.')
-                                ? 'U tom terminu pozorište je već zauzeto.'
-                                : 'Greška: $msg',
+                            _err(e),
                           ),
                         ),
                       );

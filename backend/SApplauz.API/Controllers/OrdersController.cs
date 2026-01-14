@@ -43,10 +43,6 @@ public class OrdersController : ControllerBase
             if (pageNumber < 1) pageNumber = 1;
             if (pageSize < 1 || pageSize > 100) pageSize = 10;
 
-            // Ako je korisnik Admin/Blagajnik/SuperAdmin, ovaj endpoint služi i za pregled "transakcija" (narudžbi) po instituciji.
-            // - SuperAdmin: može vidjeti sve (institutionId optional)
-            // - Admin/Blagajnik: vidi samo svoju instituciju (ignoriši institutionId)
-            // - Korisnik: vidi samo svoje narudžbe (ignoriši admin filtere)
             var isSuperAdmin = _currentUserService.Roles.Contains(Domain.Constants.ApplicationRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase);
             var isInstitutionStaff = _currentUserService.Roles.Any(r =>
                 Domain.Constants.ApplicationRoles.IsAdminRole(r) || Domain.Constants.ApplicationRoles.IsBlagajnikRole(r));
@@ -85,11 +81,10 @@ public class OrdersController : ControllerBase
             {
                 return NotFound(new { message = $"Narudžba sa ID {id} nije pronađena." });
             }
-
-            // Check if user owns this order
+                
             if (order.UserId != _currentUserService.UserId)
             {
-                return Forbid("Nemate pristup ovoj narudžbi.");
+                return StatusCode(403, new { message = "Nemate pristup ovoj narudžbi." });
             }
 
             return Ok(order);
@@ -154,7 +149,7 @@ public class OrdersController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -190,7 +185,7 @@ public class OrdersController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {
@@ -222,7 +217,7 @@ public class OrdersController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {

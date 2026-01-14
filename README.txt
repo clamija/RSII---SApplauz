@@ -56,6 +56,10 @@ flutter run -d windows
 
 Authentication is done via **username + password**.
 
+## Registration & role testing
+
+You can also register using email: `adil@edu.fit.ba`. After registration, you can change user roles using the SuperAdmin account, allowing you to test registration, login, and permissions for each role in the application.
+
 ### Required accounts
 
 - **Desktop version**

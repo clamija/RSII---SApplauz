@@ -26,7 +26,6 @@ public class CurrentUserService : ICurrentUserService
 
     public List<string> Roles => _httpContextAccessor.HttpContext?.User?
         .Claims
-        // Podrži i JWT claim tipove "role"/"roles" (u nekim konfiguracijama se ne mapiraju na ClaimTypes.Role)
         .Where(c =>
             c.Type == ClaimTypes.Role ||
             c.Type.Equals("role", StringComparison.OrdinalIgnoreCase) ||
@@ -43,13 +42,11 @@ public class CurrentUserService : ICurrentUserService
             return null;
         }
 
-        // SuperAdmin vidi sve institucije (nema InstitutionId ograničenje)
         if (Roles.Contains(ApplicationRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase))
         {
             return null;
         }
 
-        // Pronađi korisnika u bazi da dobijemo InstitutionId
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == UserId);
 
@@ -58,18 +55,14 @@ public class CurrentUserService : ICurrentUserService
             return null;
         }
 
-        // 1) Ako korisnik ima Admin/Blagajnik institucijsku rolu, pokušaj izvući InstitutionId iz same role (adminBKC/blagajnikSARTR...)
-        // Ovo omogućava rad sistema čak i ako InstitutionId nije upisan u tabeli korisnika.
         var roleInstitutionId = await TryResolveInstitutionIdFromRolesAsync();
         if (roleInstitutionId.HasValue)
         {
             return roleInstitutionId.Value;
         }
 
-        // Ako korisnik ima Admin ili Blagajnik ulogu, vrati InstitutionId
         if (Roles.Any(r => ApplicationRoles.IsAdminRole(r) || ApplicationRoles.IsBlagajnikRole(r)))
         {
-            // Provjeri da li institucija postoji u bazi i da li je aktivna
             if (user.InstitutionId.HasValue)
             {
                 var institutionExists = await _dbContext.Institutions
@@ -81,17 +74,14 @@ public class CurrentUserService : ICurrentUserService
                 }
             }
             
-            // Ako Admin/Blagajnik nema InstitutionId ili institucija ne postoji, vrati null (greška u podacima)
             return null;
         }
 
-        // Korisnik bez Admin/Blagajnik uloge (običan Korisnik) vidi sve institucije
         return null;
     }
 
     private async Task<int?> TryResolveInstitutionIdFromRolesAsync()
-    {
-        // očekivani formati: adminBKC, blagajnikSARTR...
+    {   
         string? ExtractCode(string role, string prefix)
         {
             var r = role.Trim();
@@ -110,11 +100,31 @@ public class CurrentUserService : ICurrentUserService
 
         if (!ApplicationRoles.InstitutionCodeToIdMap.TryGetValue(code, out var institutionId))
         {
-            return null;
+            institutionId = 0;
         }
 
-        var institutionExists = await _dbContext.Institutions.AnyAsync(i => i.Id == institutionId && i.IsActive);
-        return institutionExists ? institutionId : null;
+        // 1) Prefer ID map (ako postoji i aktivna je)
+        if (institutionId > 0)
+        {
+            var byId = await _dbContext.Institutions.AnyAsync(i => i.Id == institutionId && i.IsActive);
+            if (byId) return institutionId;
+        }
+
+        // 2) Fallback: nađi instituciju po nazivu (tolerantno na male razlike u nazivu)
+        var needle = code switch
+        {
+            "NPS" => "Narodno pozorište",
+            "POZM" => "Pozorište mladih",
+            "CK" => "Centar kulture",
+            _ => ApplicationRoles.GetInstitutionName(code)
+        };
+
+        var inst = await _dbContext.Institutions
+            .Where(i => i.IsActive)
+            .OrderBy(i => i.Id)
+            .FirstOrDefaultAsync(i => i.Name.Contains(needle));
+
+        return inst?.Id;
     }
 }
 

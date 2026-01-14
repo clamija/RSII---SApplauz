@@ -865,10 +865,13 @@ class ApiService {
         final responseData = response.data as Map<String, dynamic>;
         return Performance.fromJson(responseData['data'] as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to create performance: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri kreiranju termina',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to create performance');
+      throw _handleDioError(e, defaultMessage: 'Greška pri kreiranju termina');
     }
   }
 
@@ -887,10 +890,13 @@ class ApiService {
         final responseData = response.data as Map<String, dynamic>;
         return Performance.fromJson(responseData['data'] as Map<String, dynamic>);
       } else {
-        throw Exception('Failed to update performance: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri ažuriranju termina',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to update performance');
+      throw _handleDioError(e, defaultMessage: 'Greška pri ažuriranju termina');
     }
   }
 
@@ -905,10 +911,13 @@ class ApiService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete performance: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri brisanju termina',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to delete performance');
+      throw _handleDioError(e, defaultMessage: 'Greška pri brisanju termina');
     }
   }
 
@@ -987,10 +996,13 @@ class ApiService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete institution: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri brisanju institucije',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to delete institution');
+      throw _handleDioError(e, defaultMessage: 'Greška pri brisanju institucije');
     }
   }
 
@@ -1069,10 +1081,13 @@ class ApiService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete genre: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri brisanju žanra',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to delete genre');
+      throw _handleDioError(e, defaultMessage: 'Greška pri brisanju žanra');
     }
   }
 
@@ -1605,10 +1620,13 @@ class ApiService {
       );
 
       if (response.statusCode != 200 && response.statusCode != 204) {
-        throw Exception('Failed to delete review: ${response.statusCode}');
+        throw _handleDioError(
+          DioException(requestOptions: RequestOptions(path: ''), response: response),
+          defaultMessage: 'Greška pri brisanju recenzije',
+        );
       }
     } on DioException catch (e) {
-      throw _handleDioError(e, defaultMessage: 'Failed to delete review');
+      throw _handleDioError(e, defaultMessage: 'Greška pri brisanju recenzije');
     }
   }
 

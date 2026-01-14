@@ -62,23 +62,24 @@ public class UserService : IUserService
             throw new InvalidOperationException($"Failed to update user: {errors}");
         }
 
-        // Update password if provided
         if (!string.IsNullOrEmpty(request.NewPassword))
         {
-            // Current password is required when changing password (validator should catch this, but double-check here)
+            if (request.NewPassword.Length < 4)
+            {
+                throw new InvalidOperationException("Lozinka mora imati najmanje 4 znaka.");
+            }
+
             if (string.IsNullOrEmpty(request.CurrentPassword))
             {
                 throw new InvalidOperationException("Trenutna lozinka je obavezna za promjenu lozinke.");
             }
 
-            // Verify current password first
             var passwordValid = await _userManager.CheckPasswordAsync(user, request.CurrentPassword);
             if (!passwordValid)
             {
                 throw new InvalidOperationException("Trenutna lozinka nije tačna.");
             }
 
-            // Change password using ChangePasswordAsync (better than ResetPasswordAsync for known current password)
             var changePasswordResult = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
             
             if (!changePasswordResult.Succeeded)
@@ -97,7 +98,6 @@ public class UserService : IUserService
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request)
     {
-        // Check if email already exists
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
@@ -121,7 +121,6 @@ public class UserService : IUserService
             throw new InvalidOperationException($"Failed to create user: {errors}");
         }
 
-        // Assign roles
         if (request.Roles.Any())
         {
             var validRoles = await GetAvailableRolesAsync();
@@ -146,11 +145,9 @@ public class UserService : IUserService
         }
         else
         {
-            // Default role: Korisnik
             await _userManager.AddToRoleAsync(user, ApplicationRoles.Korisnik);
         }
 
-        // Ako je dodijeljena institucijska rola (adminBKC/blagajnikSARTR), upiši InstitutionId radi stabilnosti (iako se može izvući iz role).
         var assignedRoles = await _userManager.GetRolesAsync(user);
         var resolvedInstitutionId = TryResolveInstitutionIdFromRoles(assignedRoles);
         if (resolvedInstitutionId.HasValue)
@@ -160,7 +157,6 @@ public class UserService : IUserService
         }
         else
         {
-            // Ako korisnik nema institucijske role, očisti InstitutionId
             user.InstitutionId = null;
             await _userManager.UpdateAsync(user);
         }
@@ -174,13 +170,10 @@ public class UserService : IUserService
 
     public async Task<UserListResponse> GetUsersAsync(int pageNumber = 1, int pageSize = 10, string? searchTerm = null)
     {
-        // Ne prikazuj deaktivirane korisnike u administraciji (soft-deleted)
         var query = _userManager.Users.Where(u => u.IsActive).AsQueryable();
 
-        // Apply search filter
         if (!string.IsNullOrWhiteSpace(searchTerm))
         {
-            // Podrži pretragu po više riječi (npr. "novi korisnik2") tako da svaka riječ može pogoditi ime ili prezime (ili email).
             var terms = searchTerm
                 .Trim()
                 .ToLower()
@@ -188,7 +181,7 @@ public class UserService : IUserService
 
             foreach (var term in terms)
             {
-                var t = term; // closure safe
+                var t = term;
                 query = query.Where(u =>
                     (u.FirstName != null && u.FirstName.ToLower().Contains(t)) ||
                     (u.LastName != null && u.LastName.ToLower().Contains(t)) ||
@@ -198,7 +191,6 @@ public class UserService : IUserService
 
         var totalCount = await query.CountAsync();
 
-        // Apply pagination
         var users = await query
             .OrderBy(u => u.LastName)
             .ThenBy(u => u.FirstName)
@@ -232,7 +224,6 @@ public class UserService : IUserService
             return false;
         }
 
-        // Pokušaj hard-delete. Ako padne zbog FK veza (orders/reviews), uradi soft-delete (deaktivacija)
         try
         {
             var hardDeleteResult = await _userManager.DeleteAsync(user);
@@ -240,14 +231,11 @@ public class UserService : IUserService
         }
         catch (DbUpdateException)
         {
-            // fallback ispod
         }
         catch (Exception)
         {
-            // fallback ispod (ne želimo 500 samo zbog delete restrikcija)
-        }
+                    }
 
-        // Soft delete: deaktiviraj + zaključaj nalog + ukloni role
         user.IsActive = false;
         user.UpdatedAt = DateTime.UtcNow;
         user.LockoutEnabled = true;
@@ -273,7 +261,6 @@ public class UserService : IUserService
             throw new KeyNotFoundException($"User with id {userId} not found.");
         }
 
-        // Get available roles
         var availableRoles = await GetAvailableRolesAsync();
         var rolesToAssign = request.Roles
             .Select(r => r?.Trim())
@@ -284,10 +271,8 @@ public class UserService : IUserService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // Get current roles
         var currentRoles = await _userManager.GetRolesAsync(user);
 
-        // Remove roles that are not in the new list
         var rolesToRemove = currentRoles.Except(rolesToAssign).ToList();
         if (rolesToRemove.Any())
         {
@@ -299,7 +284,6 @@ public class UserService : IUserService
             }
         }
 
-        // Add new roles
         var rolesToAdd = rolesToAssign.Except(currentRoles).ToList();
         if (rolesToAdd.Any())
         {
@@ -311,7 +295,6 @@ public class UserService : IUserService
             }
         }
 
-        // Sync InstitutionId based on roles (adminXXX/blagajnikXXX). Ako nema institucijske role, očisti InstitutionId.
         var finalRoles = await _userManager.GetRolesAsync(user);
         var institutionId = TryResolveInstitutionIdFromRoles(finalRoles);
         user.InstitutionId = institutionId;
@@ -331,7 +314,6 @@ public class UserService : IUserService
             .Select(r => r.Name!)
             .ToListAsync();
 
-        // Ne izlaži generičke "Admin"/"Blagajnik" role kroz UI (koristimo isključivo adminXXX/blagajnikXXX).
         roles = roles
             .Where(r =>
                 !r.Equals(ApplicationRoles.Admin, StringComparison.OrdinalIgnoreCase) &&

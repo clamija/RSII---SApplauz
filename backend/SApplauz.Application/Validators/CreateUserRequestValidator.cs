@@ -21,6 +21,7 @@ public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>
 
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Lozinka je obavezna.")
+            .MinimumLength(4).WithMessage("Lozinka mora imati najmanje 4 znaka.")
             ;
 
         RuleFor(x => x.Roles)

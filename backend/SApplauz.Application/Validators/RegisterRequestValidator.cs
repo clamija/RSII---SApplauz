@@ -21,6 +21,7 @@ public class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 
         RuleFor(x => x.Password)
             .NotEmpty().WithMessage("Nedostaje obavezno polje: Lozinka")
+            .MinimumLength(4).WithMessage("Lozinka mora imati najmanje 4 znaka.")
             ;
 
         RuleFor(x => x.ConfirmPassword)

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SApplauz.Application.Interfaces;
@@ -33,36 +34,43 @@ public class DatabaseSeeder : IDatabaseSeeder
         try
         {
             _logger.LogInformation("=== Starting database seeding ===");
-            
-            // Ensure database is created
-            await _context.Database.MigrateAsync();
-            _logger.LogInformation("Database migrations completed.");
 
-            // Seed Roles
+            try
+            {
+                await _context.Database.MigrateAsync();
+                _logger.LogInformation("Database migrations completed.");
+            }
+            catch (SqlException ex) when (ex.Number == 2714 || ex.Message.Contains("already an object named 'AspNetRoles'", StringComparison.OrdinalIgnoreCase))
+            {
+                // Dev scenario: baza je već ručno/ranije kreirana bez __EFMigrationsHistory,
+                // pa EF pokušava ponovo kreirati Identity tabele i pukne.
+                // Ne želimo da API padne (Swagger 500), pa u tom slučaju nastavljamo bez migracija.
+                _logger.LogWarning(ex, "MigrateAsync failed because tables already exist. Continuing without applying migrations.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Database migrations failed.");
+                throw;
+            }
+
             _logger.LogInformation("Seeding roles...");
             await SeedRolesAsync();
 
-            // Seed Genres
             _logger.LogInformation("=== Calling SeedGenresAsync ===");
             await SeedGenresAsync();
 
-            // Seed Institutions
             _logger.LogInformation("=== Calling SeedInstitutionsAsync ===");
             await SeedInstitutionsAsync();
 
-            // Seed Users (Admin/Blagajnik imaju InstitutionId -> mora postojati Institutions)
             _logger.LogInformation("Seeding users...");
             await SeedUsersAsync();
 
-            // Seed Shows
             _logger.LogInformation("=== Calling SeedShowsAsync ===");
             await SeedShowsAsync();
 
-            // Seed Performances
             _logger.LogInformation("=== Calling SeedPerformancesAsync ===");
             await SeedPerformancesAsync();
 
-            // Seed Orders/Tickets/Reviews/RecommendationProfiles (testni podaci za evaluaciju)
             _logger.LogInformation("=== Calling SeedOrdersTicketsReviewsAsync ===");
             await SeedOrdersTicketsReviewsAsync();
 
@@ -96,7 +104,22 @@ public class DatabaseSeeder : IDatabaseSeeder
 
     private async Task SeedUsersAsync()
     {
-        // SuperAdmin user (JEDAN)
+        // Dinamički resolve ID-eva institucija po nazivu (ne pretpostavljamo da su 1..8).
+        async Task<int?> InstId(string name)
+        {
+            var inst = await _context.Institutions.FirstOrDefaultAsync(i => i.Name == name);
+            return inst?.Id;
+        }
+
+        var npsId = await InstId("Narodno pozorište Sarajevo");
+        var ktId = await InstId("Kamerni teatar 55");
+        var sartrId = await InstId("Sarajevski ratni teatar");
+        var pozmId = await InstId("Pozorište mladih Sarajevo");
+        var osId = await InstId("Otvorena scena Obala");
+        var ckId = await InstId("JU Centar kulture i mladih");
+        var bkcId = await InstId("Bosanski kulturni centar");
+        var dmId = await InstId("Dom mladih Skenderija");
+
         await CreateUserIfNotExistsAsync(
             username: "superadmin",
             email: "superadmin@sapplauz.ba",
@@ -106,9 +129,6 @@ public class DatabaseSeeder : IDatabaseSeeder
             role: ApplicationRoles.SuperAdmin
         );
 
-        // Admini institucija (PO JEDAN za svaku instituciju)
-        // Koriste generičku "Admin" ulogu sa InstitutionId
-        // Mapiranje: NPS=1, KT=2, SARTR=3, POZM=4, OS=5, CK=6, BKC=7, DM=8 (prema InstitutionCodeToIdMap)
         await CreateUserIfNotExistsAsync(
             username: "adminNPS",
             email: "adminNPS@sapplauz.ba",
@@ -116,7 +136,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "NPS",
             role: ApplicationRoles.Admin,
-            institutionId: 1 // NPS
+            institutionId: npsId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -126,7 +146,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "KT",
             role: ApplicationRoles.Admin,
-            institutionId: 2 // KT
+            institutionId: ktId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -136,7 +156,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "SARTR",
             role: ApplicationRoles.Admin,
-            institutionId: 3 // SARTR
+            institutionId: sartrId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -146,7 +166,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "POZM",
             role: ApplicationRoles.Admin,
-            institutionId: 4 // POZM
+            institutionId: pozmId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -156,7 +176,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "OS",
             role: ApplicationRoles.Admin,
-            institutionId: 5 // OS
+            institutionId: osId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -166,7 +186,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "CK",
             role: ApplicationRoles.Admin,
-            institutionId: 6 // CK
+            institutionId: ckId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -176,7 +196,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "BKC",
             role: ApplicationRoles.Admin,
-            institutionId: 7 // BKC
+            institutionId: bkcId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -186,11 +206,9 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Admin",
             lastName: "DM",
             role: ApplicationRoles.Admin,
-            institutionId: 8 // DM
+            institutionId: dmId
         );
 
-        // Blagajnici institucija (PO JEDAN za svaku instituciju)
-        // Koriste generičku "Blagajnik" ulogu sa InstitutionId
         await CreateUserIfNotExistsAsync(
             username: "blagajnikNPS",
             email: "blagajnikNPS@sapplauz.ba",
@@ -198,7 +216,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "NPS",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 1 // NPS
+            institutionId: npsId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -208,7 +226,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "KT",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 2 // KT
+            institutionId: ktId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -218,7 +236,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "SARTR",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 3 // SARTR
+            institutionId: sartrId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -228,7 +246,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "POZM",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 4 // POZM
+            institutionId: pozmId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -238,7 +256,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "OS",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 5 // OS
+            institutionId: osId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -248,7 +266,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "CK",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 6 // CK
+            institutionId: ckId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -258,7 +276,7 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "BKC",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 7 // BKC
+            institutionId: bkcId
         );
 
         await CreateUserIfNotExistsAsync(
@@ -268,10 +286,9 @@ public class DatabaseSeeder : IDatabaseSeeder
             firstName: "Blagajnik",
             lastName: "DM",
             role: ApplicationRoles.Blagajnik,
-            institutionId: 8 // DM
+            institutionId: dmId
         );
 
-        // Mobile test korisnik
         await CreateUserIfNotExistsAsync(
             username: "mobile",
             email: "mobile@sapplauz.ba",
@@ -281,7 +298,6 @@ public class DatabaseSeeder : IDatabaseSeeder
             role: ApplicationRoles.SuperAdmin
         );
 
-        // Desktop test korisnik
         await CreateUserIfNotExistsAsync(
             username: "desktop",
             email: "desktop@sapplauz.ba",
@@ -291,7 +307,6 @@ public class DatabaseSeeder : IDatabaseSeeder
             role: ApplicationRoles.SuperAdmin
         );
 
-        // Dodatni test korisnici (za narudžbe/karte/recenzije)
         for (var i = 1; i <= 6; i++)
         {
             await CreateUserIfNotExistsAsync(
@@ -317,7 +332,6 @@ public class DatabaseSeeder : IDatabaseSeeder
         var existingUser = await _userManager.FindByEmailAsync(email);
         if (existingUser != null)
         {
-            // Ako već postoji, osiguraj da username i password odgovaraju seederu (da ne moramo hard reset).
             var changed = false;
             if (!string.Equals(existingUser.UserName, username, StringComparison.Ordinal))
             {
@@ -351,7 +365,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 await _userManager.UpdateAsync(existingUser);
             }
 
-            // Resetuj lozinku na "test" (ili ono što je prosleđeno)
             var resetToken = await _userManager.GeneratePasswordResetTokenAsync(existingUser);
             var resetResult = await _userManager.ResetPasswordAsync(existingUser, resetToken, password);
             if (!resetResult.Succeeded)
@@ -360,9 +373,7 @@ public class DatabaseSeeder : IDatabaseSeeder
                 _logger.LogWarning("Failed to reset password for {Email}: {Errors}", email, errs);
             }
 
-            // Osiguraj ulogu (ako nije dodijeljena)
             var roles = await _userManager.GetRolesAsync(existingUser);
-            // Seeder korisnici: forsiraj tačno jednu ulogu (da UI/pravila budu predvidivi)
             foreach (var r in roles.Where(r => !string.Equals(r, role, StringComparison.Ordinal)))
             {
                 await _userManager.RemoveFromRoleAsync(existingUser, r);
@@ -384,10 +395,20 @@ public class DatabaseSeeder : IDatabaseSeeder
             LastName = lastName,
             EmailConfirmed = true,
             CreatedAt = DateTime.UtcNow,
-            InstitutionId = institutionId // Postavi InstitutionId za Admin i Blagajnik uloge
+            InstitutionId = institutionId
         };
 
-        var result = await _userManager.CreateAsync(user, password);
+        IdentityResult result;
+        try
+        {
+            result = await _userManager.CreateAsync(user, password);
+        }
+        catch (DbUpdateException ex)
+        {
+            // Ne ruši seed ako je baza nekonzistentna (npr. FK na institucije).
+            _logger.LogError(ex, "Failed to create user {Email} due to DB constraints.", email);
+            return;
+        }
         if (result.Succeeded)
         {
             await _userManager.AddToRoleAsync(user, role);
@@ -444,27 +465,32 @@ public class DatabaseSeeder : IDatabaseSeeder
                 _logger.LogInformation("All required genres already exist.");
             }
 
-            // Cleanup: ukloni privremeni žanr "Temporary" (nastaje iz ranije migracije),
-            // ali prvo premapiraj sve predstave koje ga koriste na "Drama" (ili prvi dostupni).
-            var temp = await _context.Genres.FirstOrDefaultAsync(g => g.Name == "Temporary");
+            // Cleanup: ukloni "Temporary" žanr ako postoji (ne želimo da se pojavljuje u aplikaciji).
+            // Ako slučajno ima predstava, preveži ih na prvi "pravi" žanr i onda obriši.
+            var temp = await _context.Genres
+                .Include(g => g.Shows)
+                .FirstOrDefaultAsync(g => g.Name == "Temporary");
+
             if (temp != null)
             {
                 var fallback = await _context.Genres
-                    .Where(g => g.Id != temp.Id)
-                    .OrderByDescending(g => g.Name == "Drama")
-                    .ThenBy(g => g.Id)
-                    .FirstOrDefaultAsync();
+                    .OrderBy(g => g.Id)
+                    .FirstOrDefaultAsync(g => g.Id != temp.Id);
 
-                if (fallback != null)
+                if (temp.Shows.Any())
                 {
-                    await _context.Database.ExecuteSqlInterpolatedAsync(
-                        $"UPDATE Shows SET GenreId = {fallback.Id} WHERE GenreId = {temp.Id}"
-                    );
+                    if (fallback != null)
+                    {
+                        foreach (var s in temp.Shows)
+                        {
+                            s.GenreId = fallback.Id;
+                        }
+                    }
                 }
 
                 _context.Genres.Remove(temp);
                 await _context.SaveChangesAsync();
-                _logger.LogInformation("Removed temporary genre and remapped shows to genreId {GenreId}.", fallback?.Id);
+                _logger.LogInformation("Removed Temporary genre.");
             }
         }
         catch (Exception ex)
@@ -611,7 +637,6 @@ public class DatabaseSeeder : IDatabaseSeeder
         {
             _logger.LogInformation("Starting SeedShowsAsync...");
             
-            // Get genres and institutions for reference
             var dramaGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == "Drama");
             var komedijaGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == "Komedija");
             var djecjaGenre = await _context.Genres.FirstOrDefaultAsync(g => g.Name == "Dječija predstava");
@@ -679,7 +704,8 @@ public class DatabaseSeeder : IDatabaseSeeder
                 DurationMinutes = 90,
                 Institution = ktInstitution ?? npsInstitution,
                 Genre = dramaGenre,
-                ImagePath = (string?)"/images/ona.jpg",
+                // Nema slike u projektu -> fallback na sliku institucije
+                ImagePath = (string?)null,
                 CreatedAt = DateTime.Parse("2026-01-08T02:45:36.3266667")
             },
             new
@@ -769,7 +795,8 @@ public class DatabaseSeeder : IDatabaseSeeder
                 DurationMinutes = 60,
                 Institution = pozmInstitution ?? npsInstitution,
                 Genre = djecjaGenre ?? dramaGenre,
-                ImagePath = (string?)"/images/cvrcek-i-mrav.jpg",
+                // Napomena: file u wwwroot je "cvrcak-i-mrav.jpg"
+                ImagePath = (string?)"/images/cvrcak-i-mrav.jpg",
                 CreatedAt = DateTime.Parse("2026-01-08T02:45:36.3300000")
             },
             new
@@ -803,7 +830,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 CreatedAt = DateTime.Parse("2026-01-08T02:45:36.3300000")
             }
             ,
-            // === Dodane predstave po zahtjevu (BKC + DM) ===
             new
             {
                 Title = "LAJFKOUČ.ba",
@@ -811,7 +837,8 @@ public class DatabaseSeeder : IDatabaseSeeder
                 DurationMinutes = 60,
                 Institution = bkcInstitution ?? npsInstitution,
                 Genre = komedijaGenre ?? dramaGenre,
-                ImagePath = (string?)"/images/lajfkouc-ba.png",
+                // Nema slike u projektu -> fallback na sliku institucije
+                ImagePath = (string?)null,
                 CreatedAt = DateTime.Parse("2026-01-08T02:45:36.3300000")
             },
             new
@@ -841,7 +868,8 @@ public class DatabaseSeeder : IDatabaseSeeder
                 DurationMinutes = 60,
                 Institution = dmInstitution ?? npsInstitution,
                 Genre = komedijaGenre ?? dramaGenre,
-                ImagePath = (string?)"/images/pas-matter.png",
+                // Nema slike u projektu -> fallback na sliku institucije
+                ImagePath = (string?)null,
                 CreatedAt = DateTime.Parse("2026-01-08T02:45:36.3300000")
             }
         };
@@ -879,6 +907,36 @@ public class DatabaseSeeder : IDatabaseSeeder
             {
                 _logger.LogInformation("All required shows already exist.");
             }
+
+            // Fix-up za postojeće predstave (ako su seedane ranije sa pogrešnim putanjama slika)
+            var titlesToFix = new[] { "Cvrčak i mrav", "LAJFKOUČ.ba", "ON(A)", "PAS MATTER" };
+            var toFix = await _context.Shows
+                .Where(s => titlesToFix.Contains(s.Title))
+                .ToListAsync();
+
+            var fixedAny = false;
+            foreach (var s in toFix)
+            {
+                if (s.Title == "Cvrčak i mrav" && string.Equals(s.ImagePath, "/images/cvrcek-i-mrav.jpg", StringComparison.OrdinalIgnoreCase))
+                {
+                    s.ImagePath = "/images/cvrcak-i-mrav.jpg";
+                    fixedAny = true;
+                }
+
+                if ((s.Title == "LAJFKOUČ.ba" && string.Equals(s.ImagePath, "/images/lajfkouc-ba.png", StringComparison.OrdinalIgnoreCase)) ||
+                    (s.Title == "ON(A)" && string.Equals(s.ImagePath, "/images/ona.jpg", StringComparison.OrdinalIgnoreCase)) ||
+                    (s.Title == "PAS MATTER" && string.Equals(s.ImagePath, "/images/pas-matter.png", StringComparison.OrdinalIgnoreCase)))
+                {
+                    s.ImagePath = null;
+                    fixedAny = true;
+                }
+            }
+
+            if (fixedAny)
+            {
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Applied show imagePath fix-ups for seeded data.");
+            }
         }
         catch (Exception ex)
         {
@@ -894,7 +952,6 @@ public class DatabaseSeeder : IDatabaseSeeder
         {
             _logger.LogInformation("Starting SeedPerformancesAsync...");
 
-            // Učitaj predstave sa institucijama (treba nam capacity)
             var shows = await _context.Shows
                 .Include(s => s.Institution)
                 .Where(s => s.IsActive)
@@ -906,7 +963,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 return;
             }
 
-            // existing keys to avoid duplicates
             var existingPerformanceKeys = (await _context.Performances
                     .Select(p => new { p.ShowId, p.StartTime })
                     .ToListAsync())
@@ -934,12 +990,8 @@ public class DatabaseSeeder : IDatabaseSeeder
                 }
             }
 
-            // Termini (10. januar – 20. februar) ali REALNIJE: ne "svaki dan 8 termina".
-            // Cilj: krajem januara (svaka 2-3 dana) po instituciji bude >=3 termina (tamniji dani na kalendaru),
-            // a ostali dani budu "svjetliji" (0-1 termin).
             var nowUtc = DateTime.UtcNow;
             var year = nowUtc.Year;
-            // koristimo Unspecified da API ne šalje "Z" i da se tretira kao lokalno vrijeme u klijentu (Europe/Sarajevo)
             var fixedStart = new DateTime(year, 1, 10, 0, 0, 0, DateTimeKind.Unspecified);
             var fixedEnd = new DateTime(year, 2, 20, 0, 0, 0, DateTimeKind.Unspecified);
             if (nowUtc > fixedEnd.AddDays(2))
@@ -962,7 +1014,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 return Math.Max(1, cap - sold);
             }
 
-            // 1) "Lagani" termini: svaka 3. dana po instituciji 1 termin (19:00)
             var dayCount = (fixedEnd.Date - fixedStart.Date).Days + 1;
             for (var dayOffset = 0; dayOffset < dayCount; dayOffset++)
             {
@@ -981,7 +1032,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 }
             }
 
-            // 2) Kraj januara: svaka 2 dana po instituciji najmanje 3 termina (16:00, 18:00, 20:00)
             var endJanStart = new DateTime(fixedStart.Year, 1, 20, 0, 0, 0, DateTimeKind.Unspecified);
             var endJanEnd = new DateTime(fixedStart.Year, 1, 31, 0, 0, 0, DateTimeKind.Unspecified);
             for (var day = endJanStart.Date; day <= endJanEnd.Date; day = day.AddDays(2))
@@ -1002,8 +1052,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 }
             }
 
-            // 3) Dinamički termini oko sada (da uvijek postoji "u toku" + "sljedeća" + "završena")
-            // (također Unspecified radi konzistentnog prikaza na klijentu)
             var baseShow = shows.OrderBy(s => s.Title).First();
             var localNowApprox = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Unspecified);
             AddPerformanceIfNotExists(baseShow, localNowApprox.AddMinutes(-10), 15m, Math.Max(1, baseShow.Institution.Capacity - 5)); // u toku
@@ -1036,7 +1084,6 @@ public class DatabaseSeeder : IDatabaseSeeder
         {
             _logger.LogInformation("Starting SeedOrdersTicketsReviewsAsync...");
 
-            // Seed korisnici za testiranje (Kor1..Kor6 + postojeći)
             var seedUserEmails = new List<string>
             {
                 "mobile@sapplauz.ba",
@@ -1053,7 +1100,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 return;
             }
 
-            // Idempotent: seedaj samo korisnike koji još nemaju narudžbe (da se ne duplira na restartu).
             var seedUserIds = seedUsers.Select(u => u.Id).ToList();
             var usersWithOrders = await _context.Orders
                 .Where(o => seedUserIds.Contains(o.UserId))
@@ -1062,7 +1108,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 .ToListAsync();
             var usersWithOrdersSet = usersWithOrders.ToHashSet();
 
-            // Učitaj performanse i pripadajuće predstave/institucije/žanr
             var now = DateTime.UtcNow;
             var performances = await _context.Performances
                 .Include(p => p.Show)
@@ -1075,7 +1120,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 return;
             }
 
-            // Helper: end time po predstavi (DurationMinutes)
             DateTime GetEnd(Performance p) => p.StartTime.AddMinutes(p.Show.DurationMinutes);
 
             var ended = performances.Where(p => GetEnd(p) < now.AddMinutes(-30)).OrderByDescending(p => p.StartTime).ToList();
@@ -1087,10 +1131,8 @@ public class DatabaseSeeder : IDatabaseSeeder
 
             var rng = new Random(77);
 
-            // Helper: kreiraj QR
             string NewQr() => $"SAPPLAUZ-{Guid.NewGuid():N}";
 
-            // Grupisano po institucijama da osiguramo "više institucija" u narudžbama
             var institutionIds = performances.Select(p => p.Show.InstitutionId).Distinct().OrderBy(x => x).ToList();
             if (institutionIds.Count == 0) institutionIds = new List<int> { 1 };
 
@@ -1099,15 +1141,13 @@ public class DatabaseSeeder : IDatabaseSeeder
             List<Performance> UpcomingFor(int instId) =>
                 upcoming.Where(p => p.Show.InstitutionId == instId).ToList();
 
-            // Kreiraj narudžbe + karte
             foreach (var u in seedUsers)
             {
                 if (usersWithOrdersSet.Contains(u.Id))
                 {
-                    continue; // već ima narudžbe, ne seedamo ponovo
+                    continue;
                 }
 
-                // Rotiraj institucije po useru da svako dobije narudžbe u više institucija
                 var baseIdx = Math.Abs(u.Email?.GetHashCode() ?? 0) % institutionIds.Count;
                 var instA = institutionIds[baseIdx];
                 var instB = institutionIds[(baseIdx + 1) % institutionIds.Count];
@@ -1121,7 +1161,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 if (!upcomingB.Any()) upcomingB = upcoming;
                 if (!upcomingC.Any()) upcomingC = upcoming;
 
-                // 1) Paid + skenirano + završen termin (za recenzije)
                 var pEnded = endedA[rng.Next(Math.Min(endedA.Count, 50))];
                 await CreateOrderWithTicketsAsync(
                     userId: u.Id,
@@ -1132,7 +1171,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     scannedAt: pEnded.StartTime.AddMinutes(10),
                     createdAt: pEnded.StartTime.AddDays(-2));
 
-                // 2) Paid + neskenirano + sljedeći termin (da blagajnik može skenirati)
                 var pNext = upcomingB[rng.Next(Math.Min(upcomingB.Count, 50))];
                 await CreateOrderWithTicketsAsync(
                     userId: u.Id,
@@ -1143,7 +1181,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     scannedAt: null,
                     createdAt: pNext.StartTime.AddDays(-1));
 
-                // 3) Pending (narudžba kreirana, nije plaćena)
                 var pPending = upcomingC[rng.Next(Math.Min(upcomingC.Count, 50))];
                 await CreateOrderWithTicketsAsync(
                     userId: u.Id,
@@ -1154,7 +1191,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     scannedAt: null,
                     createdAt: now.AddDays(-rng.Next(1, 10)));
 
-                // 4) Refunded + refunded ticket
                 var pRefunded = endedA[rng.Next(Math.Min(endedA.Count, 50))];
                 await CreateOrderWithTicketsAsync(
                     userId: u.Id,
@@ -1165,7 +1201,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     scannedAt: null,
                     createdAt: pRefunded.StartTime.AddDays(-3));
 
-                // 5) Paid + neskenirano + završen termin => auto postaje "Invalid" (nevažeća) u TicketService (da superadmin vidi nevažeće)
                 var pExpired = endedA[rng.Next(Math.Min(endedA.Count, 50))];
                 await CreateOrderWithTicketsAsync(
                     userId: u.Id,
@@ -1177,7 +1212,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     createdAt: pExpired.StartTime.AddDays(-4));
             }
 
-            // Seed recenzije (samo za korisnike koji zaista mogu recenzirati: PAID + SCANNED + termin završen)
             var nowInAppTz = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, GetAppTimeZone());
             var scannedTickets = await _context.Tickets
                 .Include(t => t.OrderItem)
@@ -1191,7 +1225,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                     t.Status == TicketStatus.Scanned)
                 .ToListAsync();
 
-            // samo oni gdje je termin završen (StartTime + DurationMinutes < now)
             var eligibleShowIdsByUser = scannedTickets
                 .Where(t =>
                 {
@@ -1236,7 +1269,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 }
             }
 
-            // jedna nevidljiva recenzija (za test moderacije)
             var anyEligible = eligibleShowIdsByUser.FirstOrDefault(kv => kv.Value.Count > 0);
             if (!string.IsNullOrWhiteSpace(anyEligible.Key) && anyEligible.Value.Count > 0)
             {
@@ -1264,7 +1296,6 @@ public class DatabaseSeeder : IDatabaseSeeder
                 _logger.LogInformation("Seeded {Count} reviews.", reviewsToAdd.Count);
             }
 
-            // Seed RecommendationProfiles (da korisnici ne budu cold-start)
             var existingProfiles = await _context.RecommendationProfiles
                 .Where(p => seedUsers.Select(u => u.Id).Contains(p.UserId))
                 .ToListAsync();
@@ -1275,7 +1306,6 @@ public class DatabaseSeeder : IDatabaseSeeder
             {
                 if (existingProfileUserIds.Contains(u.Id)) continue;
 
-                // preferencije po žanru na osnovu kupljenih predstava (Paid)
                 var genres = scannedTickets
                     .Where(t => t.OrderItem.Order.UserId == u.Id)
                     .Select(t => t.OrderItem.Performance.Show.GenreId)
@@ -1346,7 +1376,6 @@ public class DatabaseSeeder : IDatabaseSeeder
 
                 _context.Orders.Add(order);
 
-                // Payments (da "transakcije" imaju smisla i za izvještaje)
                 if (status == OrderStatus.Paid)
                 {
                     order.Payments.Add(new Payment
@@ -1367,9 +1396,7 @@ public class DatabaseSeeder : IDatabaseSeeder
                         CreatedAt = DateTime.UtcNow
                     });
                 }
-                // Cancelled se ne seed-a (u ovoj aplikaciji ne bilježimo korisnički "cancel" checkout-a)
-
-                // smanji dostupna mjesta za Paid narudžbe (da izgleda realno)
+            
                 if (status == OrderStatus.Paid)
                 {
                     performance.AvailableSeats = Math.Max(0, performance.AvailableSeats - quantity);

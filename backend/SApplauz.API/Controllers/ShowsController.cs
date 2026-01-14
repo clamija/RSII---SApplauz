@@ -29,7 +29,6 @@ public class ShowsController : ControllerBase
             if (filter.PageNumber < 1) filter.PageNumber = 1;
             if (filter.PageSize < 1 || filter.PageSize > 100) filter.PageSize = 10;
 
-            // Public repertor (sve institucije), bez automatskog institution scope-a za Admin/Blagajnik.
             var response = await _showService.GetShowsPublicAsync(filter);
             return Ok(response);
         }
@@ -49,13 +48,12 @@ public class ShowsController : ControllerBase
             if (filter.PageNumber < 1) filter.PageNumber = 1;
             if (filter.PageSize < 1 || filter.PageSize > 100) filter.PageSize = 10;
 
-            // Management lista: zadrži postojeće ograničenje po instituciji za Admin/Blagajnik.
             var response = await _showService.GetShowsAsync(filter);
             return Ok(response);
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -101,7 +99,7 @@ public class ShowsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -128,7 +126,7 @@ public class ShowsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -152,7 +150,7 @@ public class ShowsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (InvalidOperationException ex)
         {

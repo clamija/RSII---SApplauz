@@ -25,9 +25,6 @@ public class UsersController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Get list of users with pagination and search
-    /// </summary>
     [HttpGet]
     [Authorize(Roles = ApplicationRoles.AllAdminAndBlagajnikRoles)]
     public async Task<ActionResult<UserListResponse>> GetUsers(
@@ -50,9 +47,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get user by ID
-    /// </summary>
     [HttpGet("{id}")]
     [Authorize(Roles = ApplicationRoles.AllAdminAndBlagajnikRoles)]
     public async Task<ActionResult<UserDto>> GetUser(string id)
@@ -74,9 +68,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Get current authenticated user
-    /// </summary>
     [HttpGet("me")]
     public async Task<ActionResult<UserDto>> GetCurrentUser()
     {
@@ -102,9 +93,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update current authenticated user profile
-    /// </summary>
     [HttpPut("me")]
     public async Task<ActionResult<UserDto>> UpdateCurrentUser([FromBody] UpdateUserRequest request)
     {
@@ -133,9 +121,6 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Create a new user
-    /// </summary>
     [HttpPost]
     [Authorize(Roles = ApplicationRoles.AllAdminRoles)]
     public async Task<ActionResult<UserDto>> CreateUser([FromBody] CreateUserRequest request)
@@ -156,22 +141,18 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update user information
-    /// </summary>
     [HttpPut("{id}")]
     [Authorize(Roles = ApplicationRoles.AllAdminRoles)]
     public async Task<ActionResult<UserDto>> UpdateUser(string id, [FromBody] UpdateUserRequest request)
         {
             try
             {
-                // Allow users to update their own profile, or admins to update any profile
                 if (!_currentUserService.IsAuthenticated || 
                     (_currentUserService.UserId != id && 
                      !_currentUserService.Roles.Contains(ApplicationRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase) && 
                      !_currentUserService.Roles.Any(role => ApplicationRoles.IsAdminRole(role))))
                 {
-                    return Forbid("You don't have permission to update this user.");
+                    return StatusCode(403, new { message = "You don't have permission to update this user." });
                 }
 
             var user = await _userService.UpdateUserAsync(id, request);
@@ -192,16 +173,12 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Delete a user (only SuperAdmin)
-    /// </summary>
     [HttpDelete("{id}")]
     [Authorize(Roles = ApplicationRoles.SuperAdmin)]
     public async Task<IActionResult> DeleteUser(string id)
     {
         try
         {
-            // Prevent self-deletion
             if (_currentUserService.UserId == id)
             {
                 return BadRequest(new { message = "You cannot delete your own account." });
@@ -222,20 +199,16 @@ public class UsersController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Update user roles
-    /// </summary>
     [HttpPut("{id}/roles")]
     [Authorize(Roles = ApplicationRoles.AllAdminRoles)]
     public async Task<ActionResult<UserDto>> UpdateUserRoles(string id, [FromBody] UpdateUserRolesRequest request)
         {
             try
             {
-                // Prevent non-SuperAdmin from assigning/removing SuperAdmin role
                 if (!_currentUserService.Roles.Contains(ApplicationRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase) && 
                     request.Roles.Any(r => r.Equals(ApplicationRoles.SuperAdmin, StringComparison.OrdinalIgnoreCase)))
                 {
-                    return Forbid("Only SuperAdmin can assign SuperAdmin role.");
+                    return StatusCode(403, new { message = "Only SuperAdmin can assign SuperAdmin role." });
                 }
 
             var user = await _userService.UpdateUserRolesAsync(id, request);
@@ -255,10 +228,7 @@ public class UsersController : ControllerBase
             return StatusCode(500, new { message = "An error occurred while updating user roles." });
         }
     }
-
-    /// <summary>
-    /// Get available roles
-    /// </summary>
+    
     [HttpGet("roles")]
     [Authorize(Roles = ApplicationRoles.AllAdminRoles)]
     public async Task<ActionResult<List<string>>> GetAvailableRoles()

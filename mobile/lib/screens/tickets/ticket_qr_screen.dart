@@ -81,9 +81,10 @@ class _TicketQRScreenState extends State<TicketQRScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isRefunding = false);
+      final msg = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '').trim();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Greška pri refund-u: ${e.toString()}'),
+          content: Text(msg),
           backgroundColor: Colors.red,
         ),
       );

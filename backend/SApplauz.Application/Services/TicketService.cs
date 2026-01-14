@@ -43,7 +43,6 @@ public class TicketService : ITicketService
             };
         }
 
-        // Check if ticket is refunded
         if (ticket.Status == TicketStatus.Refunded)
         {
             var refundedDto = _mapper.Map<TicketDto>(ticket);
@@ -61,7 +60,6 @@ public class TicketService : ITicketService
             };
         }
 
-        // Check if ticket is already scanned
         if (ticket.Status == TicketStatus.Scanned)
         {
             var scannedDto = _mapper.Map<TicketDto>(ticket);
@@ -79,7 +77,6 @@ public class TicketService : ITicketService
             };
         }
 
-        // Check if ticket is invalid
         if (ticket.Status == TicketStatus.Invalid)
         {
             var invalidDto = _mapper.Map<TicketDto>(ticket);
@@ -97,7 +94,6 @@ public class TicketService : ITicketService
             };
         }
 
-        // Check if order is paid
         if (ticket.OrderItem.Order.Status != OrderStatus.Paid)
         {
             var unpaidDto = _mapper.Map<TicketDto>(ticket);
@@ -115,7 +111,6 @@ public class TicketService : ITicketService
             };
         }
 
-        // Check institution if provided
         if (institutionId.HasValue)
         {
             if (ticket.OrderItem.Performance.Show.InstitutionId != institutionId.Value)
@@ -136,7 +131,6 @@ public class TicketService : ITicketService
             }
         }
 
-        // Check time window: 120 minutes before and 15 minutes after start time
         var performance = ticket.OrderItem.Performance;
         var now = GetNowInAppTimeZone();
         var startTime = performance.StartTime;
@@ -162,7 +156,6 @@ public class TicketService : ITicketService
 
         if (now > validTo)
         {
-            // Automatically mark as invalid if more than 15 minutes after start
             ticket.Status = TicketStatus.Invalid;
             await _dbContext.SaveChangesAsync();
 
@@ -188,13 +181,13 @@ public class TicketService : ITicketService
             };
         }
 
-        // Validate ticket
         ticket.Status = TicketStatus.Scanned;
-        // ScannedAt čuvamo kao UTC za konzistentnost
-        ticket.ScannedAt = DateTime.UtcNow;
+        // ScannedAt spremamo u "app lokalnom" vremenu (Europe/Sarajevo) kao Unspecified,
+        // da klijenti ne dobiju +1h/+2h pomak zbog različitih interpretacija DateTime kind-a.
+        var scannedLocal = GetNowInAppTimeZone();
+        ticket.ScannedAt = DateTime.SpecifyKind(scannedLocal, DateTimeKind.Unspecified);
         await _dbContext.SaveChangesAsync();
 
-        // Publish TicketScanned message to RabbitMQ
         if (_rabbitMQService != null)
         {
             try
@@ -208,8 +201,6 @@ public class TicketService : ITicketService
             }
             catch
             {
-                // Log error but don't fail ticket validation
-                // In production, you might want to use a logger here
             }
         }
 
@@ -242,7 +233,6 @@ public class TicketService : ITicketService
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
-        // Auto-expire: ako je prošlo više od 15 min od početka i karta nije skenirana, postaje nevažeća
         var now = GetNowInAppTimeZone();
         var changed = false;
         foreach (var t in tickets)
@@ -282,7 +272,6 @@ public class TicketService : ITicketService
             return null;
         }
 
-        // Auto-expire i na dohvat QR koda (da UI odmah vidi nevažeću kartu nakon +15 min)
         var now = GetNowInAppTimeZone();
         if (TryRecomputeTicketStatus(ticket, now))
         {
@@ -318,7 +307,6 @@ public class TicketService : ITicketService
                         .ThenInclude(s => s.Institution)
             .AsQueryable();
 
-        // Samo plaćene karte (plaćene narudžbe)
         query = query.Where(t => t.OrderItem.Order.Status == OrderStatus.Paid);
 
         if (institutionId.HasValue)
@@ -330,7 +318,6 @@ public class TicketService : ITicketService
             .OrderByDescending(t => t.CreatedAt)
             .ToListAsync();
 
-        // Auto-expire u listi (pregled karata / admin)
         var now = GetNowInAppTimeZone();
         var changed = false;
         foreach (var t in tickets)
@@ -342,7 +329,6 @@ public class TicketService : ITicketService
             await _dbContext.SaveChangesAsync();
         }
 
-        // Status filter primijeni NAKON recompute-a, inače "NotScanned -> Invalid" nikad ne uđe u rezultat.
         if (!string.IsNullOrWhiteSpace(status))
         {
             var normalizedStatus = status.Trim();
@@ -366,23 +352,19 @@ public class TicketService : ITicketService
 
     private static DateTime GetNowInAppTimeZone()
     {
-        // Performance.StartTime se šalje/čuva bez timezone (lokalno vrijeme). Zato "sada" računamo u istom (lokalnom) vremenu.
         var tz = GetAppTimeZone();
         return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz);
     }
 
     private static TimeZoneInfo GetAppTimeZone()
     {
-        // Windows: "Central European Standard Time"
-        // Linux: "Europe/Sarajevo" (tzdata)
-        try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Sarajevo"); } catch { /* ignore */ }
-        try { return TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"); } catch { /* ignore */ }
+            try { return TimeZoneInfo.FindSystemTimeZoneById("Europe/Sarajevo"); } catch { }
+        try { return TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"); } catch { }
         return TimeZoneInfo.Local;
     }
 
     private static bool TryRecomputeTicketStatus(Ticket ticket, DateTime nowInAppTz)
     {
-        // Scanned/Refunded su finalni
         if (ticket.Status == TicketStatus.Scanned) return false;
         if (ticket.Status == TicketStatus.Refunded) return false;
 
@@ -391,15 +373,12 @@ public class TicketService : ITicketService
 
         var isExpired = start.Value.AddMinutes(15) < nowInAppTz;
 
-        // Ako je istekla i nije skenirana -> Invalid
         if (ticket.Status == TicketStatus.NotScanned && isExpired)
         {
             ticket.Status = TicketStatus.Invalid;
             return true;
         }
 
-        // Ako je ranije označena Invalid (zbog isteka), a termin je pomjeren unaprijed i više NIJE istekla -> vrati na NotScanned
-        // (sigurno samo za karte koje nisu skenirane)
         if (ticket.Status == TicketStatus.Invalid && !isExpired && ticket.ScannedAt == null)
         {
             ticket.Status = TicketStatus.NotScanned;

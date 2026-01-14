@@ -395,6 +395,12 @@ class _ShowsManagementScreenState extends State<ShowsManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveTotalPages = _showListResponse == null
+        ? 1
+        : (_currentPage == 1 && _showListResponse!.shows.length < _pageSize)
+            ? 1
+            : _showListResponse!.totalPages;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Upravljanje Predstavama'),
@@ -529,7 +535,7 @@ class _ShowsManagementScreenState extends State<ShowsManagementScreen> {
                               },
                             ),
                           ),
-                          if (_showListResponse!.totalPages > 1)
+                          if (effectiveTotalPages > 1)
                             Padding(
                               padding: const EdgeInsets.all(8.0),
                               child: Row(
@@ -546,10 +552,10 @@ class _ShowsManagementScreenState extends State<ShowsManagementScreen> {
                                           }
                                         : null,
                                   ),
-                                  Text('Stranica $_currentPage od ${_showListResponse!.totalPages}'),
+                                  Text('Stranica $_currentPage od $effectiveTotalPages'),
                                   IconButton(
                                     icon: const Icon(Icons.chevron_right),
-                                    onPressed: _currentPage < _showListResponse!.totalPages
+                                    onPressed: _currentPage < effectiveTotalPages
                                         ? () {
                                             setState(() {
                                               _currentPage++;

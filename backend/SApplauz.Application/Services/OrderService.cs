@@ -58,11 +58,9 @@ public class OrderService : IOrderService
         var dto = _mapper.Map<OrderDto>(order);
         dto.InstitutionName = order.Institution.Name;
         
-        // Get user name
         var user = await _dbContext.Users.FindAsync(order.UserId);
         dto.UserName = user != null ? $"{user.FirstName} {user.LastName}" : "Nepoznat korisnik";
         
-        // Map order items
         dto.OrderItems = order.OrderItems.Select(oi =>
         {
             var itemDto = _mapper.Map<OrderItemDto>(oi);
@@ -92,7 +90,6 @@ public class OrderService : IOrderService
             .Take(pageSize)
             .ToListAsync();
 
-        // Popuni UserName za list prikaz (Kupac:)
         var userIds = orders.Select(o => o.UserId).Distinct().ToList();
         var userNames = await _dbContext.Users
             .Where(u => userIds.Contains(u.Id))
@@ -176,7 +173,6 @@ public class OrderService : IOrderService
             .Take(pageSize)
             .ToListAsync();
 
-        // Popuni UserName za list prikaz (Kupac:)
         var userIds = orders.Select(o => o.UserId).Distinct().ToList();
         var userNames = await _dbContext.Users
             .Where(u => userIds.Contains(u.Id))
@@ -212,7 +208,6 @@ public class OrderService : IOrderService
 
     public async Task<OrderDto> CreateOrderAsync(string userId, CreateOrderRequest request)
     {
-        // Verify institution exists
         var institution = await _dbContext.Institutions.FindAsync(request.InstitutionId);
         if (institution == null)
         {
@@ -224,7 +219,6 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Order must contain at least one item.");
         }
 
-        // Verify all performances exist and check availability
         var performanceIds = request.OrderItems.Select(oi => oi.PerformanceId).Distinct().ToList();
         var performances = await _dbContext.Performances
             .Include(p => p.Show)
@@ -237,24 +231,20 @@ public class OrderService : IOrderService
             throw new KeyNotFoundException($"Performances with ids {string.Join(", ", missingIds)} not found.");
         }
 
-        // Check availability for each performance (double-check before creating order)
         foreach (var orderItem in request.OrderItems)
         {
             var performance = performances.First(p => p.Id == orderItem.PerformanceId);
             
-            // Verify performance belongs to the institution
             if (performance.Show.InstitutionId != request.InstitutionId)
             {
                 throw new InvalidOperationException($"Termin {orderItem.PerformanceId} ne pripada odabranoj instituciji.");
             }
 
-            // Validate quantity
             if (orderItem.Quantity <= 0)
             {
                 throw new InvalidOperationException($"Količina karata mora biti veća od 0.");
             }
 
-            // Double-check availability - optimistic locking
             if (performance.AvailableSeats < orderItem.Quantity)
             {
                 if (performance.AvailableSeats == 0)
@@ -268,7 +258,6 @@ public class OrderService : IOrderService
             }
         }
 
-        // Calculate total amount
         decimal totalAmount = 0;
         foreach (var orderItem in request.OrderItems)
         {
@@ -276,12 +265,10 @@ public class OrderService : IOrderService
             totalAmount += performance.Price * orderItem.Quantity;
         }
 
-        // Use explicit database transaction for atomicity
         Order order;
         using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
-            // Create order
             order = new Order
             {
                 UserId = userId,
@@ -294,7 +281,6 @@ public class OrderService : IOrderService
             _dbContext.Orders.Add(order);
             await _dbContext.SaveChangesAsync();
 
-            // Create order items (without tickets - tickets will be generated after successful payment)
             foreach (var orderItemRequest in request.OrderItems)
             {
                 var performance = performances.First(p => p.Id == orderItemRequest.PerformanceId);
@@ -319,13 +305,6 @@ public class OrderService : IOrderService
             throw;
         }
 
-        // Note: Tickets and seat reduction will be done in ProcessPaymentAsync after successful payment
-        // This ensures that seats are only reserved and tickets generated after payment succeeds
-
-        // Ne šaljemo email na "order created" — po zahtjevu korisnika email ide samo nakon uspješnog plaćanja (order_paid).
-
-        // Note: Recommendation profile update will be done in ProcessPaymentAsync after successful payment
-        // This ensures recommendations are only updated for paid orders
 
         return await GetOrderByIdAsync(order.Id) ?? throw new InvalidOperationException("Failed to retrieve created order.");
     }
@@ -359,10 +338,6 @@ public class OrderService : IOrderService
             throw new InvalidOperationException($"Cannot cancel paid order {id}. Refund is required.");
         }
 
-        // For Pending orders: No seats were reserved and no tickets were generated
-        // So there's nothing to restore or invalidate
-        // Only mark order as cancelled
-        // Note: If somehow tickets exist (shouldn't happen), mark them as invalid
         foreach (var orderItem in order.OrderItems)
         {
             foreach (var ticket in orderItem.Tickets)
@@ -422,17 +397,15 @@ public class OrderService : IOrderService
             throw new InvalidOperationException($"Order {id} cannot be refunded. Only paid orders can be refunded. Current status: {order.Status}");
         }
 
-        // Provjeri da li postoje skenirane karte (ne možemo refundirati ako je karta već skenirana)
         var hasScannedTickets = order.OrderItems
             .SelectMany(oi => oi.Tickets)
             .Any(t => t.Status == TicketStatus.Scanned);
 
         if (hasScannedTickets)
         {
-            throw new InvalidOperationException($"Order {id} cannot be refunded. Some tickets have already been scanned.");
+            throw new InvalidOperationException("Jedna od karata iz Vaše narudžbe je već skenirana, pa nije moguće obaviti refundaciju.");
         }
 
-        // Pronađi Payment sa PaymentIntentId
         var payment = order.Payments
             .FirstOrDefault(p => p.Status == PaymentStatus.Succeeded && !string.IsNullOrEmpty(p.StripePaymentIntentId));
 
@@ -441,7 +414,6 @@ public class OrderService : IOrderService
             throw new InvalidOperationException($"Order {id} does not have a valid payment intent for refund.");
         }
 
-        // Izvrši refund preko Stripe-a
         var refundSucceeded = await _stripeService.RefundPaymentAsync(payment.StripePaymentIntentId, null);
 
         if (!refundSucceeded)
@@ -449,14 +421,11 @@ public class OrderService : IOrderService
             throw new InvalidOperationException($"Failed to process refund for order {id}. Please try again later.");
         }
 
-        // Ažuriraj status narudžbe
         order.Status = OrderStatus.Refunded;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // Ažuriraj status plaćanja
         payment.Status = PaymentStatus.Refunded;
 
-        // Označi sve karte kao refundirane
         foreach (var orderItem in order.OrderItems)
         {
             foreach (var ticket in orderItem.Tickets)
@@ -467,17 +436,14 @@ public class OrderService : IOrderService
                 }
             }
 
-            // Oslobodi mjesta (povećaj AvailableSeats)
             orderItem.Performance.AvailableSeats += orderItem.Quantity;
         }
 
         await _dbContext.SaveChangesAsync();
 
-        // Publish RabbitMQ poruku za email notifikaciju
         var user = await _userManager.FindByIdAsync(userId);
         if (user != null)
         {
-            // Generiraj refund ID (možemo koristiti PaymentIntentId kao referencu)
             var refundId = $"refund_{payment.StripePaymentIntentId}_{DateTime.UtcNow:yyyyMMddHHmmss}";
             
             _rabbitMQService.PublishRefund(
@@ -516,10 +482,9 @@ public class OrderService : IOrderService
             throw new UnauthorizedAccessException($"User does not have permission to view tickets for order {orderId}.");
         }
 
-        // For Pending orders, tickets don't exist yet (they're generated after payment)
         if (order.Status == OrderStatus.Pending)
         {
-            return new List<TicketDto>(); // Return empty list for pending orders
+            return new List<TicketDto>();
         }
 
         var tickets = order.OrderItems
@@ -540,12 +505,10 @@ public class OrderService : IOrderService
 
     private string GenerateQRCode(int orderItemId, int ticketNumber)
     {
-        // Generate unique QR code: TICKET_{OrderItemId}_{TicketNumber}_{Timestamp}_{Random}
         var timestamp = DateTime.UtcNow.Ticks;
         var random = RandomNumberGenerator.GetInt32(1000, 9999);
         var data = $"TICKET_{orderItemId}_{ticketNumber}_{timestamp}_{random}";
         
-        // Hash the data to create a unique QR code
         using var sha256 = SHA256.Create();
         var hashBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(data));
         var hashString = Convert.ToBase64String(hashBytes).Replace("/", "_").Replace("+", "-").Substring(0, 32);
@@ -578,7 +541,6 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Stripe service is not configured.");
         }
 
-        // Check if payment already exists
         var existingPayment = await _dbContext.Payments
             .FirstOrDefaultAsync(p => p.OrderId == orderId && 
                                       (p.Status == PaymentStatus.Initiated || p.Status == PaymentStatus.Failed));
@@ -588,7 +550,6 @@ public class OrderService : IOrderService
 
         if (existingPayment != null && !string.IsNullOrEmpty(existingPayment.StripePaymentIntentId))
         {
-            // Try to retrieve existing payment intent
             try
             {
                 var stripeService = new Stripe.PaymentIntentService();
@@ -596,13 +557,11 @@ public class OrderService : IOrderService
                 
                 if (existingIntent.Status == "requires_payment_method" || existingIntent.Status == "requires_confirmation")
                 {
-                    // Reuse existing payment intent
                     paymentIntentId = existingPayment.StripePaymentIntentId;
                     clientSecret = existingIntent.ClientSecret ?? throw new InvalidOperationException("Postojeći PaymentIntent nema client secret. Molimo pokušajte ponovo.");
                 }
                 else
                 {
-                    // Create new payment intent if existing one is in wrong state
                     clientSecret = await _stripeService.CreatePaymentIntentAsync(orderId, order.TotalAmount);
                     var parts = clientSecret.Split(new[] { "_secret_" }, StringSplitOptions.None);
                     paymentIntentId = parts.Length > 0 ? parts[0] : clientSecret;
@@ -614,7 +573,6 @@ public class OrderService : IOrderService
             }
             catch
             {
-                // If retrieval fails, create new payment intent
                 try
                 {
                     clientSecret = await _stripeService.CreatePaymentIntentAsync(orderId, order.TotalAmount);
@@ -633,16 +591,13 @@ public class OrderService : IOrderService
         }
         else
         {
-            // Create new payment intent
             try
             {
                 clientSecret = await _stripeService.CreatePaymentIntentAsync(orderId, order.TotalAmount);
                 
-                // Extract payment intent ID from client secret (format: pi_xxx_secret_yyy)
                 var parts = clientSecret.Split(new[] { "_secret_" }, StringSplitOptions.None);
                 paymentIntentId = parts.Length > 0 ? parts[0] : clientSecret;
 
-                // Create payment record
                 var payment = new Payment
                 {
                     OrderId = orderId,
@@ -701,18 +656,14 @@ public class OrderService : IOrderService
             throw new InvalidOperationException("Stripe service is not configured.");
         }
 
-        // Check payment status with Stripe (payment might already be confirmed via webhook)
         var stripeService = new Stripe.PaymentIntentService();
         var stripePaymentIntent = await stripeService.GetAsync(paymentIntentId);
         
         if (stripePaymentIntent.Status == "succeeded")
         {
-            // Payment already succeeded (likely via webhook)
-            // No need to confirm again
         }
         else if (stripePaymentIntent.Status == "requires_confirmation" || stripePaymentIntent.Status == "requires_payment_method")
         {
-            // Confirm payment with Stripe (will automatically add test payment method if needed)
             var confirmed = await _stripeService.ConfirmPaymentAsync(paymentIntentId);
             
             if (!confirmed)
@@ -724,35 +675,27 @@ public class OrderService : IOrderService
         }
         else
         {
-            // Payment is in an unexpected state
             payment.Status = PaymentStatus.Failed;
             await _dbContext.SaveChangesAsync();
             throw new InvalidOperationException($"Plaćanje je u neočekivanom stanju: {stripePaymentIntent.Status}. Molimo kontaktirajte podršku.");
         }
 
-        // Update payment status
         payment.Status = PaymentStatus.Succeeded;
         
-        // Update order status
         order.Status = OrderStatus.Paid;
         order.UpdatedAt = DateTime.UtcNow;
 
-        // Now that payment is successful, verify availability again and then generate tickets and decrease available seats
-        // Load order items with performances (within transaction for consistency)
         var orderItems = await _dbContext.OrderItems
             .Include(oi => oi.Performance)
                 .ThenInclude(p => p.Show)
             .Where(oi => oi.OrderId == orderId)
             .ToListAsync();
 
-        // Use explicit database transaction for atomicity (critical section)
         using var transaction = await _dbContext.Database.BeginTransactionAsync();
         try
         {
-            // Re-check availability before finalizing (optimistic locking - seats might have been taken by another order)
             foreach (var orderItem in orderItems)
             {
-                // Reload performance from database to get latest AvailableSeats value
                 var performance = await _dbContext.Performances
                     .Include(p => p.Show)
                     .FirstOrDefaultAsync(p => p.Id == orderItem.PerformanceId);
@@ -764,15 +707,12 @@ public class OrderService : IOrderService
                 
                 if (performance.AvailableSeats < orderItem.Quantity)
                 {
-                    // Payment succeeded but seats are no longer available (race condition)
-                    // Rollback payment status and order status changes
                     payment.Status = PaymentStatus.Failed;
                     order.Status = OrderStatus.Pending;
                     
                     await _dbContext.SaveChangesAsync();
                     await transaction.RollbackAsync();
                     
-                    // Provide user-friendly error message
                     if (performance.AvailableSeats == 0)
                     {
                         throw new InvalidOperationException(
@@ -788,10 +728,8 @@ public class OrderService : IOrderService
                 }
             }
 
-            // All checks passed - generate tickets and decrease available seats atomically
             foreach (var orderItem in orderItems)
             {
-                // Reload performance to ensure we have the latest entity state
                 var performance = await _dbContext.Performances
                     .FirstOrDefaultAsync(p => p.Id == orderItem.PerformanceId);
                 
@@ -800,7 +738,6 @@ public class OrderService : IOrderService
                     throw new KeyNotFoundException($"Termin {orderItem.PerformanceId} nije pronađen.");
                 }
 
-                // Generate tickets with QR codes for each ticket in the order item
                 for (int i = 0; i < orderItem.Quantity; i++)
                 {
                     var qrCode = GenerateQRCode(orderItem.Id, i + 1);
@@ -816,7 +753,6 @@ public class OrderService : IOrderService
                     _dbContext.Tickets.Add(ticket);
                 }
 
-                // Decrease available seats (only after successful payment and final availability check)
                 performance.AvailableSeats -= orderItem.Quantity;
                 performance.UpdatedAt = DateTime.UtcNow;
             }
@@ -826,15 +762,12 @@ public class OrderService : IOrderService
         }
         catch (InvalidOperationException)
         {
-            // Re-throw InvalidOperationException (availability errors) - already rolled back
             throw;
         }
         catch
         {
-            // Rollback transaction on any other error
             await transaction.RollbackAsync();
             
-            // Revert payment and order status
             payment.Status = PaymentStatus.Failed;
             order.Status = OrderStatus.Pending;
             await _dbContext.SaveChangesAsync();
@@ -842,7 +775,6 @@ public class OrderService : IOrderService
             throw;
         }
 
-        // Ažuriraj recommendation profile za svaku predstavu u narudžbi (only after payment)
         if (_recommendationService != null)
         {
             try
@@ -857,16 +789,13 @@ public class OrderService : IOrderService
                     await _recommendationService.UpdateUserPreferencesAsync(userId, showId);
                 }
                 
-                // Invalidiraj keš preporuka za korisnika nakon kupovine
                 await _recommendationService.InvalidateUserCacheAsync(userId);
             }
             catch
             {
-                // Ignoriraj greške u recommendation servisu - ne treba da blokira procesiranje plaćanja
             }
         }
 
-        // Publish OrderPaid message to RabbitMQ
         if (_rabbitMQService != null && _userManager != null)
         {
             try
@@ -886,7 +815,6 @@ public class OrderService : IOrderService
             }
             catch
             {
-                // Log error but don't fail payment processing
             }
         }
 

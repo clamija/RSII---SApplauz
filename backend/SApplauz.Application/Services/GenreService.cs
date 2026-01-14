@@ -35,7 +35,6 @@ public class GenreService : IGenreService
 
     public async Task<GenreDto> CreateGenreAsync(CreateGenreRequest request)
     {
-        // Check if genre with same name already exists
         var exists = await _dbContext.Genres
             .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower());
 
@@ -61,7 +60,6 @@ public class GenreService : IGenreService
             throw new KeyNotFoundException($"Genre with id {id} not found.");
         }
 
-        // Check if another genre with same name exists
         var exists = await _dbContext.Genres
             .AnyAsync(g => g.Name.ToLower() == request.Name.ToLower() && g.Id != id);
 
@@ -86,12 +84,11 @@ public class GenreService : IGenreService
         {
             throw new KeyNotFoundException($"Genre with id {id} not found.");
         }
-
-        // Check if genre is used in any shows
+    
         var showsCount = genre.Shows.Count;
         if (showsCount > 0)
         {
-            throw new InvalidOperationException($"Ne možete obrisati žanr jer se koristi u {showsCount} {(showsCount == 1 ? "predstavi" : "predstava")}.");
+            throw new InvalidOperationException("Brisanje nije moguće jer postoje predstave tog žanra.");
         }
 
         _dbContext.Genres.Remove(genre);

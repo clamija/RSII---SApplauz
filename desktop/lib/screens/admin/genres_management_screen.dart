@@ -15,6 +15,11 @@ class _GenresManagementScreenState extends State<GenresManagementScreen> {
   bool _isLoading = true;
   String? _error;
 
+  String _err(Object e) => e
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .trim();
+
   @override
   void initState() {
     super.initState();
@@ -126,7 +131,7 @@ class _GenresManagementScreenState extends State<GenresManagementScreen> {
                   Navigator.pop(context);
                   await _load();
                 } catch (e) {
-                  setDialogState(() => validationError = e.toString());
+                  setDialogState(() => validationError = _err(e));
                 }
               },
               child: Text(genre == null ? 'Kreiraj' : 'Sačuvaj'),
@@ -160,7 +165,7 @@ class _GenresManagementScreenState extends State<GenresManagementScreen> {
                 if (!mounted) return;
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Greška: $e'), backgroundColor: Colors.red),
+                  SnackBar(content: Text(_err(e)), backgroundColor: Colors.red),
                 );
               }
             },

@@ -26,9 +26,9 @@ public class PerformanceService : IPerformanceService
         var query = _dbContext.Performances
             .Include(p => p.Show)
                 .ThenInclude(s => s.Institution)
-            .AsQueryable();
+            .AsQueryable(); 
 
-        // Filtriranje po instituciji ako korisnik ima ograničenje
+
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -45,7 +45,6 @@ public class PerformanceService : IPerformanceService
         var dto = _mapper.Map<PerformanceDto>(performance);
         dto.ShowTitle = performance.Show.Title;
         
-        // Postavi status i vizualni identitet
         EnrichPerformanceDto(dto, performance);
         
         return dto;
@@ -58,14 +57,12 @@ public class PerformanceService : IPerformanceService
                 .ThenInclude(s => s.Institution)
             .AsQueryable();
 
-        // Automatsko filtriranje po instituciji korisnika (ako ima ograničenje)
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
             query = query.Where(p => p.Show.InstitutionId == userInstitutionId.Value);
         }
 
-        // Apply filters
         if (filter.ShowId.HasValue)
         {
             query = query.Where(p => p.ShowId == filter.ShowId.Value);
@@ -73,7 +70,6 @@ public class PerformanceService : IPerformanceService
 
         if (filter.InstitutionId.HasValue)
         {
-            // Ako korisnik već ima ograničenje po instituciji, provjeriti da filter nije različit
             if (userInstitutionId.HasValue && filter.InstitutionId.Value != userInstitutionId.Value)
             {
                 throw new UnauthorizedAccessException("Nemate pristup podacima za tu instituciju.");
@@ -109,7 +105,6 @@ public class PerformanceService : IPerformanceService
             var dto = _mapper.Map<PerformanceDto>(p);
             dto.ShowTitle = p.Show.Title;
             
-            // Postavi status i vizualni identitet
             EnrichPerformanceDto(dto, p);
             
             return dto;
@@ -118,10 +113,8 @@ public class PerformanceService : IPerformanceService
 
     public async Task<PerformanceDto> CreatePerformanceAsync(CreatePerformanceRequest request)
     {
-        // Provjeri ograničenje po instituciji
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         
-        // Verify show exists and load institution
         var show = await _dbContext.Shows
             .Include(s => s.Institution)
             .FirstOrDefaultAsync(s => s.Id == request.ShowId);
@@ -131,17 +124,13 @@ public class PerformanceService : IPerformanceService
             throw new KeyNotFoundException($"Show with id {request.ShowId} not found.");
         }
 
-        // Standardizuj sve termine u bazi na APP lokalno vrijeme (Europe/Sarajevo) kao DateTimeKind.Unspecified.
-        // Razlog: SQL Server vraća DateTime kao Kind=Unspecified, pa je ovo jedini konzistentan model.
         var normalizedStartLocal = NormalizeToAppLocalUnspecified(request.StartTime);
 
-        // Provjeri da li Admin pokušava kreirati termin za tuđu instituciju
         if (userInstitutionId.HasValue && show.InstitutionId != userInstitutionId.Value)
         {
             throw new UnauthorizedAccessException("Možete kreirati termine samo za svoju instituciju.");
         }
 
-        // Check if performance with same show and start time already exists
         var exists = await _dbContext.Performances
             .AnyAsync(p => p.ShowId == request.ShowId && p.StartTime == normalizedStartLocal);
 
@@ -150,8 +139,6 @@ public class PerformanceService : IPerformanceService
             throw new InvalidOperationException($"Performance for show {request.ShowId} at {request.StartTime} already exists.");
         }
 
-        // Zabrana preklapanja termina unutar iste institucije:
-        // zauzetost = trajanje predstave + 30 min (turnaround)
         await EnsureInstitutionScheduleAvailableAsync(
             institutionId: show.InstitutionId,
             startTime: normalizedStartLocal,
@@ -161,7 +148,7 @@ public class PerformanceService : IPerformanceService
 
         var performance = _mapper.Map<Performance>(request);
         performance.StartTime = normalizedStartLocal;
-        performance.AvailableSeats = show.Institution.Capacity; // Initially all seats are available (equal to institution capacity)
+        performance.AvailableSeats = show.Institution.Capacity;
         performance.CreatedAt = DateTime.UtcNow;
 
         _dbContext.Performances.Add(performance);
@@ -177,7 +164,6 @@ public class PerformanceService : IPerformanceService
                 .ThenInclude(s => s.Institution)
             .AsQueryable();
         
-        // Filtriranje po instituciji ako korisnik ima ograničenje
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -190,7 +176,25 @@ public class PerformanceService : IPerformanceService
             throw new KeyNotFoundException($"Performance with id {id} not found.");
         }
 
-        // Verify show exists
+        // Ako postoji makar jedna plaćena karta za ovaj termin, ne dozvoli ni ažuriranje.
+        var hasPaidTickets = await _dbContext.Tickets
+            .Include(t => t.OrderItem)
+                .ThenInclude(oi => oi.Order)
+            .AnyAsync(t =>
+                t.OrderItem.PerformanceId == id &&
+                t.OrderItem.Order.Status == OrderStatus.Paid);
+        if (hasPaidTickets)
+        {
+            // Tekst poruke je tražen (iako kaže "obrisati", koristimo ga i za update po zahtjevu).
+            throw new InvalidOperationException("Termin nije moguće obrisati jer je za isti plaćena makar jedna karta.");
+        }
+
+        // Ne dozvoli ažuriranje termina koji je već u toku
+        if (IsCurrentlyShowing(performance.StartTime, performance.Show.DurationMinutes))
+        {
+            throw new InvalidOperationException("Termin je već u toku.");
+        }
+
         var show = await _dbContext.Shows
             .Include(s => s.Institution)
             .FirstOrDefaultAsync(s => s.Id == request.ShowId);
@@ -199,16 +203,13 @@ public class PerformanceService : IPerformanceService
             throw new KeyNotFoundException($"Show with id {request.ShowId} not found.");
         }
 
-        // Standardizuj sve termine u bazi na APP lokalno vrijeme (Europe/Sarajevo) kao DateTimeKind.Unspecified.
         var normalizedStartLocal = NormalizeToAppLocalUnspecified(request.StartTime);
 
-        // Provjeri da li Admin pokušava promijeniti Show na tuđu instituciju
         if (userInstitutionId.HasValue && show.InstitutionId != userInstitutionId.Value)
         {
             throw new UnauthorizedAccessException("Možete ažurirati termine samo za svoju instituciju.");
         }
 
-        // Check if another performance with same show and start time exists
         var exists = await _dbContext.Performances
             .AnyAsync(p => p.ShowId == request.ShowId && 
                           p.StartTime == normalizedStartLocal && 
@@ -219,8 +220,6 @@ public class PerformanceService : IPerformanceService
             throw new InvalidOperationException($"Performance for show {request.ShowId} at {request.StartTime} already exists.");
         }
 
-        // Zabrana preklapanja termina unutar iste institucije:
-        // zauzetost = trajanje predstave + 30 min (turnaround)
         await EnsureInstitutionScheduleAvailableAsync(
             institutionId: show.InstitutionId,
             startTime: normalizedStartLocal,
@@ -230,7 +229,6 @@ public class PerformanceService : IPerformanceService
 
         var oldStartTime = performance.StartTime;
 
-        // Update only mutable fields (AvailableSeats is managed by OrderService during ticket purchase)
         performance.ShowId = request.ShowId;
         performance.StartTime = normalizedStartLocal;
         performance.Price = request.Price;
@@ -238,9 +236,6 @@ public class PerformanceService : IPerformanceService
 
         await _dbContext.SaveChangesAsync();
 
-        // Recompute ticket status for this performance:
-        // - Ako je termin pomjeren unaprijed, vrati Invalid -> NotScanned (ako nije skenirana i više nije istekla)
-        // - Ako je termin pomjeren unazad, ažuriraj NotScanned -> Invalid ako je sad istekla
         await RecomputeTicketsForPerformanceAsync(performance.Id);
 
         return await GetPerformanceByIdAsync(performance.Id) ?? throw new InvalidOperationException("Failed to retrieve updated performance.");
@@ -311,7 +306,6 @@ public class PerformanceService : IPerformanceService
         }
         else
         {
-            // Unspecified: tretiraj kao već uneseno u app lokalnom vremenu
             local = dt;
         }
 
@@ -327,7 +321,6 @@ public class PerformanceService : IPerformanceService
         var candidateStart = NormalizeToAppLocalUnspecified(startTime);
         var candidateEnd = candidateStart.AddMinutes(durationMinutes + InstitutionTurnaroundMinutes);
 
-        // Grubi filter: +/- 1 dan oko kandidata (sve u app lokalnom vremenu)
         var from = candidateStart.AddDays(-1);
         var to = candidateEnd.AddDays(1);
 
@@ -344,14 +337,12 @@ public class PerformanceService : IPerformanceService
         var existing = await query.ToListAsync();
         foreach (var p in existing)
         {
-            // p.StartTime je po dogovoru već app lokalno (Unspecified)
             var pStart = NormalizeToAppLocalUnspecified(p.StartTime);
             var pEnd = pStart.AddMinutes(p.Show.DurationMinutes + InstitutionTurnaroundMinutes);
 
-            // Overlap check: [start, end) se preklapa ako start < otherEnd && otherStart < end
             if (candidateStart < pEnd && pStart < candidateEnd)
             {
-                throw new InvalidOperationException("U tom terminu pozorište je već zauzeto.");
+                throw new InvalidOperationException("Odabrani termin nije dostupan, molimo odaberite drugi.");
             }
         }
     }
@@ -364,7 +355,6 @@ public class PerformanceService : IPerformanceService
                 .ThenInclude(s => s.Institution)
             .AsQueryable();
         
-        // Filtriranje po instituciji ako korisnik ima ograničenje
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -378,10 +368,23 @@ public class PerformanceService : IPerformanceService
             throw new KeyNotFoundException($"Performance with id {id} not found.");
         }
 
-        // Check if performance has order items
+        // Ne dozvoli brisanje termina ako postoji makar jedna plaćena karta za taj termin
+        var hasPaidTickets = await _dbContext.Tickets
+            .Include(t => t.OrderItem)
+                .ThenInclude(oi => oi.Order)
+            .AnyAsync(t =>
+                t.OrderItem.PerformanceId == id &&
+                t.OrderItem.Order.Status == OrderStatus.Paid);
+
+        if (hasPaidTickets)
+        {
+            throw new InvalidOperationException("Termin nije moguće obrisati jer je za isti plaćena makar jedna karta.");
+        }
+
+        // Ako postoje order item-i (npr. Pending), ne briši zbog integriteta podataka
         if (performance.OrderItems.Any())
         {
-            throw new InvalidOperationException($"Cannot delete performance with id {id} because it has associated order items.");
+            throw new InvalidOperationException("Termin nije moguće obrisati jer postoje vezane narudžbe.");
         }
 
         _dbContext.Performances.Remove(performance);
@@ -392,7 +395,6 @@ public class PerformanceService : IPerformanceService
     {
         var query = _dbContext.Performances.AsQueryable();
         
-        // Filtriranje po instituciji ako korisnik ima ograničenje
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -410,26 +412,15 @@ public class PerformanceService : IPerformanceService
         return performance.AvailableSeats >= quantity;
     }
 
-    // Helper metode za status i vizualni identitet
-    
-    /// <summary>
-    /// Obogaćuje PerformanceDto sa status informacijama i bojom
-    /// </summary>
     private void EnrichPerformanceDto(PerformanceDto dto, Performance performance)
     {
-        // Provjeri da li se trenutno izvodi
         dto.IsCurrentlyShowing = IsCurrentlyShowing(performance.StartTime, performance.Show.DurationMinutes);
         
-        // Izračunaj status
         dto.Status = CalculateStatus(performance.AvailableSeats, dto.IsCurrentlyShowing);
         
-        // Izračunaj boju statusa
         dto.StatusColor = CalculateStatusColor(performance.AvailableSeats, dto.IsCurrentlyShowing);
     }
 
-    /// <summary>
-    /// Provjerava da li se predstava trenutno izvodi
-    /// </summary>
     private bool IsCurrentlyShowing(DateTime startTime, int durationMinutes)
     {
         var now = GetNowInAppTimeZone();
@@ -437,9 +428,6 @@ public class PerformanceService : IPerformanceService
         return startTime <= now && endTime >= now;
     }
 
-    /// <summary>
-    /// Izračunava status teksta za performance
-    /// </summary>
     private string CalculateStatus(int availableSeats, bool isCurrentlyShowing)
     {
         if (isCurrentlyShowing)
@@ -460,27 +448,24 @@ public class PerformanceService : IPerformanceService
         return "Dostupno";
     }
 
-    /// <summary>
-    /// Izračunava boju statusa za performance
-    /// </summary>
     private string CalculateStatusColor(int availableSeats, bool isCurrentlyShowing)
     {
         if (isCurrentlyShowing)
         {
-            return "blue"; // Plavo za trenutno izvodenje
+            return "blue";
         }
         
         if (availableSeats == 0)
         {
-            return "red"; // Crveno za rasprodano
+            return "red";
         }
         
         if (availableSeats > 0 && availableSeats <= 5)
         {
-            return "orange"; // Narandžasto za posljednja mjesta
+                return "orange";
         }
         
-        return "green"; // Zeleno za dostupno
+        return "green";
     }
 }
 

@@ -56,15 +56,14 @@ services:
       - JWT__SecretKey=YourSuperSecretKeyForJWTTokenGeneration2024!
       - JWT__Issuer=SApplauz
       - JWT__Audience=SApplauz
-      #- Stripe__SecretKey=sk_test_your_stripe_secret_key
-      #- Stripe__PublishableKey=pk_test_your_stripe_publishable_key
-      - Stripe__SecretKey=sk_test_51SmxOIBNHXnq8dw5lQF63bNxBrbAwI1jEIp5M5qItU18JH3D3P6Ptc7t9Q2ZuUKuBCsXn7EeX8YasSS09QhBYdzL00IzhZK9ED
-      - Stripe__PublishableKey=pk_test_51SmxOIBNHXnq8dw5io0s6nIpgZQqJWmT3DGY9QtsiiOCkI5qjcamQBzbUu8lAZUnjgjn2gHTUEh9Zx5o6qj9c6lP003lAvzOAq
+      # Secrets: definiraj ih kroz `.env` (nije u git-u) ili kroz env varijable na hostu.
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY:-sk_test_your_stripe_secret_key}
+      - Stripe__PublishableKey=${STRIPE_PUBLISHABLE_KEY:-pk_test_your_stripe_publishable_key}
       - Stripe__WebhookSecret=whsec_your_webhook_secret
       - SMTP__Host=smtp.gmail.com
       - SMTP__Port=587
       - SMTP__Username=clamija23@gmail.com
-      - SMTP__Password=rgfa simv ptva svkp
+      - SMTP__Password=${SMTP_PASSWORD:-your_smtp_password}
       - SMTP__UseSsl=true
       - SMTP__FromEmail=clamija23@gmail.com
       - SMTP__FromName=SApplauz
@@ -95,13 +94,12 @@ services:
       - SMTP__Host=smtp.gmail.com
       - SMTP__Port=587
       - SMTP__Username=clamija23@gmail.com
-      - SMTP__Password=rgfa simv ptva svkp
+      - SMTP__Password=${SMTP_PASSWORD:-your_smtp_password}
       - SMTP__UseSsl=true
       - SMTP__FromEmail=clamija23@gmail.com
       - SMTP__FromName=SApplauz
       - SMTP__ForceRecipient=clamija23@gmail.com
-      #- Stripe__SecretKey=sk_test_your_stripe_secret_key
-      - Stripe__SecretKey=sk_test_51SmxOIBNHXnq8dw5lQF63bNxBrbAwI1jEIp5M5qItU18JH3D3P6Ptc7t9Q2ZuUKuBCsXn7EeX8YasSS09QhBYdzL00IzhZK9ED
+      - Stripe__SecretKey=${STRIPE_SECRET_KEY:-sk_test_your_stripe_secret_key}
       - Stripe__WebhookSecret=whsec_your_webhook_secret
     depends_on:
       sqlserver:

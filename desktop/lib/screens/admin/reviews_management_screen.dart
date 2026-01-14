@@ -90,48 +90,7 @@ class _ReviewsManagementScreenState extends State<ReviewsManagementScreen> {
     }
   }
 
-  void _showDeleteDialog(Review review) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Brisanje recenzije'),
-        content: Text('Da li ste sigurni da želite obrisati recenziju korisnika "${review.userName}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Odustani'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await ApiService.deleteReview(review.id);
-                if (!mounted) return;
-                Navigator.pop(context);
-                _loadData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Recenzija obrisana'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                if (!mounted) return;
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Greška: ${e.toString()}'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Obriši'),
-          ),
-        ],
-      ),
-    );
-  }
+  // Brisanje recenzija nije podržano; koristi se sakrivanje/prikazivanje.
 
   List<Review> get _filteredReviews {
     final searchTerm = _searchController.text.toLowerCase();
@@ -422,14 +381,6 @@ class _ReviewsManagementScreenState extends State<ReviewsManagementScreen> {
                                                 : 'Prikaži',
                                           ),
                                           onPressed: () => _toggleVisibility(review),
-                                        ),
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.delete, color: Colors.red),
-                                          label: const Text(
-                                            'Obriši',
-                                            style: TextStyle(color: Colors.red),
-                                          ),
-                                          onPressed: () => _showDeleteDialog(review),
                                         ),
                                       ],
                                     ),

@@ -117,7 +117,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Email je obavezno polje';
     }
-    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$').hasMatch(value)) {
       return 'Unesite validan email format';
     }
     return null;

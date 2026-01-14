@@ -109,15 +109,29 @@ public class InstitutionService : IInstitutionService
             throw new KeyNotFoundException($"Institution with id {id} not found.");
         }
 
-        // Check if institution has shows
         var showsCount = await _dbContext.Shows.CountAsync(s => s.InstitutionId == id);
         if (showsCount > 0)
         {
-            throw new InvalidOperationException($"Ne možete obrisati instituciju jer se koristi u {showsCount} {(showsCount == 1 ? "predstavi" : "predstava")}.");
+            throw new InvalidOperationException("Brisanje nije moguće jer postoje predstave koje se izvode u ovoj instituciji.");
         }
 
-        _dbContext.Institutions.Remove(institution);
-        await _dbContext.SaveChangesAsync();
+        // Iako nema predstava, institucija može biti referencirana (npr. Admin/Blagajnik korisnici).
+        var usersCount = await _dbContext.Users.CountAsync(u => u.InstitutionId == id);
+        if (usersCount > 0)
+        {
+            throw new InvalidOperationException("Brisanje nije moguće jer postoje korisnici vezani za ovu instituciju.");
+        }
+
+        try
+        {
+            _dbContext.Institutions.Remove(institution);
+            await _dbContext.SaveChangesAsync();
+        }
+        catch (DbUpdateException)
+        {
+            // Fallback za sve ostale FK slučajeve
+            throw new InvalidOperationException("Brisanje nije moguće jer postoje podaci vezani za ovu instituciju.");
+        }
     }
 }
 

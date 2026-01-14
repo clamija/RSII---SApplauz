@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using SApplauz.Application.Mappings;
@@ -34,7 +35,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "API za SApplauz platformu - objedinjena pozorišna scena Sarajeva"
     });
 
-    // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below.",
@@ -58,12 +58,17 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    // Fix za Swagger generisanje kada imamo upload endpoint-e sa IFormFile.
+    c.MapType<IFormFile>(() => new OpenApiSchema
+    {
+        Type = "string",
+        Format = "binary"
+    });
 });
 
-// Add Identity services
 builder.Services.AddIdentityServices(builder.Configuration);
 
-// Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JWT").Get<JwtSettings>() 
     ?? throw new InvalidOperationException("JWT settings not found in configuration.");
 
@@ -89,24 +94,20 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Normalize role claims (case-insensitive roles support)
 builder.Services.AddScoped<IClaimsTransformation, RoleClaimsTransformation>();
 
-// Add CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFlutterApps", policy =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            // U development modu dozvoli sve origin-e (samo za development!)
             policy.AllowAnyOrigin()
                   .AllowAnyMethod()
                   .AllowAnyHeader();
         }
         else
         {
-            // U production modu koristi striktnu konfiguraciju
             policy.WithOrigins("http://localhost", "http://127.0.0.1")
                   .AllowAnyMethod()
                   .AllowAnyHeader()
@@ -115,18 +116,14 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add HttpContextAccessor for CurrentUserService
 builder.Services.AddHttpContextAccessor();
 
-// Add Memory Cache for RecommendationService
 builder.Services.AddMemoryCache();
 
-// Add Application services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
-    // Register RecommendationService first (it's used by other services)
     builder.Services.AddScoped<IRecommendationService, RecommendationService>();
     
     builder.Services.AddScoped<IInstitutionService, InstitutionService>();
@@ -138,57 +135,44 @@ builder.Services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
     builder.Services.AddScoped<ITicketService, TicketService>();
     builder.Services.AddScoped<IReportService, ReportService>();
     
-    // Configure RabbitMQ Settings
     var rabbitMQSettings = builder.Configuration.GetSection("RabbitMQ");
     builder.Services.Configure<RabbitMQSettings>(rabbitMQSettings);
     
-    // Register RabbitMQ Service as Singleton (connection should be shared)
     builder.Services.AddSingleton<IRabbitMQService, RabbitMQService>();
     
-    // Configure Stripe Settings
     var stripeSettings = builder.Configuration.GetSection("Stripe");
     builder.Services.Configure<StripeSettings>(stripeSettings);
     
-    // Register Stripe Service
-    builder.Services.AddScoped<IStripeService, StripeService>();
+        builder.Services.AddScoped<IStripeService, StripeService>();
 
-// Add Background Services
 builder.Services.AddHostedService<TicketExpirationService>();
 
-// Add AutoMapper - Assembly je već dostupan kroz Application projekat
 System.Reflection.Assembly autoMapperAssembly = typeof(UserProfile).Assembly;
 builder.Services.AddAutoMapper(autoMapperAssembly);
 
-// Add FluentValidation
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddFluentValidationClientsideAdapters();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-// CORS mora biti PRIJE UseHttpsRedirection
 app.UseCors("AllowFlutterApps");
 
-// U development modu ne koristimo HTTPS redirection da bi Flutter mogao pristupiti preko HTTP
 if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
 
-// Enable static files (za serviranje slika iz wwwroot/images)
 app.UseStaticFiles();
 
-// Add Validation Error Handler Middleware
 app.UseMiddleware<ValidationErrorHandlerMiddleware>();
 
-// Eksplicitno rukovanje OPTIONS zahtjevima (preflight)
 app.Use(async (context, next) =>
 {
     if (context.Request.Method == "OPTIONS")
@@ -205,12 +189,20 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed database on startup (Development ili eksplicitno kroz config)
-if (app.Environment.IsDevelopment() || builder.Configuration.GetValue<bool>("SeedOnStartup"))
+// Seed (kontrolisano preko konfiguracije; omogućava dev okruženju da isključi seed kad je baza već postavljena)
+if (builder.Configuration.GetValue<bool>("SeedOnStartup"))
 {
     using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
-    await seeder.SeedAsync();
+    try
+    {
+        await seeder.SeedAsync();
+    }
+    catch (Exception ex)
+    {
+        // Ne ruši aplikaciju (Swagger/UI) ako je lokalna baza u nekonzistentnom stanju.
+        app.Logger.LogError(ex, "Database seeding failed. API will continue running.");
+    }
 }
 
 app.Run();

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace SApplauz.API.Controllers;
@@ -11,7 +12,6 @@ public class ImagesController : ControllerBase
     private readonly IWebHostEnvironment _env;
     private readonly ILogger<ImagesController> _logger;
 
-    // Hard limit (10MB) – dovoljno za normalne slike, a štiti server
     private const long MaxBytes = 10 * 1024 * 1024;
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -25,15 +25,16 @@ public class ImagesController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>
-    /// Upload slike. Vraća relativnu putanju tipa /images/shows/abc123.jpg
-    /// </summary>
     [HttpPost("upload")]
+    [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxBytes)]
-    public async Task<IActionResult> Upload([FromForm] IFormFile file, [FromQuery] string? folder = null)
+    public async Task<IActionResult> Upload([FromForm] UploadImageRequest request)
     {
         try
         {
+            var file = request.File;
+            var folder = request.Folder;
+
             if (file == null || file.Length == 0)
             {
                 return BadRequest(new { message = "Slika nije poslana." });
@@ -50,10 +51,8 @@ public class ImagesController : ControllerBase
                 return BadRequest(new { message = "Nepodržan format slike. Dozvoljeno: jpg, jpeg, png, webp." });
             }
 
-            // Sanitize folder (shows / institutions / misc)
             var safeFolder = SanitizeFolder(folder);
 
-            // Ensure wwwroot/images/<folder> exists
             var imagesRoot = Path.Combine(_env.WebRootPath, "images", safeFolder);
             Directory.CreateDirectory(imagesRoot);
 
@@ -75,12 +74,17 @@ public class ImagesController : ControllerBase
         }
     }
 
+    public sealed class UploadImageRequest
+    {
+        public IFormFile File { get; set; } = default!;
+        public string? Folder { get; set; }
+    }
+
     private static string SanitizeFolder(string? folder)
     {
         if (string.IsNullOrWhiteSpace(folder)) return "misc";
         var f = folder.Trim().ToLowerInvariant();
-
-        // dozvoli samo poznate foldere
+    
         return f switch
         {
             "shows" => "shows",

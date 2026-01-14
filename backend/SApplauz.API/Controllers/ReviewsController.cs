@@ -32,7 +32,6 @@ public class ReviewsController : ControllerBase
         {
             if (filter.PageNumber < 1) filter.PageNumber = 1;
             if (filter.PageSize < 1 || filter.PageSize > 100) filter.PageSize = 10;
-            // Public endpoint: vrati samo vidljive recenzije
             filter.IsVisible ??= true;
 
             var reviews = await _reviewService.GetReviewsAsync(filter);
@@ -123,14 +122,10 @@ public class ReviewsController : ControllerBase
                 return Unauthorized(new { message = "Korisnik nije autentifikovan." });
             }
 
-            // Validate review eligibility (validation is done inside CreateReviewAsync now)
             var review = await _reviewService.CreateReviewAsync(_currentUserService.UserId, request);
             
-            // Check if review was updated (not created) by checking if UpdatedAt is very recent
-            // If UpdatedAt exists and is within last minute, it was just updated
             if (review.UpdatedAt.HasValue && review.CreatedAt < review.UpdatedAt.Value)
             {
-                // Review was just updated (not created), return 200 OK
                 return Ok(new { 
                     data = review, 
                     message = "Recenzija je uspješno ažurirana." 
@@ -148,7 +143,6 @@ public class ReviewsController : ControllerBase
         }
         catch (InvalidOperationException ex)
         {
-            // This will catch validation errors from ValidateReviewEligibilityAsync
             return BadRequest(new { message = ex.Message });
         }
         catch (Exception ex)
@@ -178,7 +172,7 @@ public class ReviewsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -189,46 +183,10 @@ public class ReviewsController : ControllerBase
 
     [HttpDelete("{id}")]
     [Authorize]
-    public async Task<IActionResult> DeleteReview(int id)
+    public IActionResult DeleteReview(int id)
     {
-        try
-        {
-            if (string.IsNullOrEmpty(_currentUserService.UserId))
-            {
-                return Unauthorized(new { message = "Korisnik nije autentifikovan." });
-            }
-
-            // Allow deletion if user owns review or is admin
-            var isAdmin = _currentUserService.Roles.Any(role => 
-                role == ApplicationRoles.SuperAdmin || ApplicationRoles.IsAdminRole(role));
-
-            if (!isAdmin)
-            {
-                await _reviewService.DeleteReviewAsync(id, _currentUserService.UserId);
-            }
-            else
-            {
-                // Admin can delete any review - we'll need to add a method for this
-                // For now, we'll use the existing method which checks ownership
-                // TODO: Add DeleteReviewAsync(int id) without userId check for admins
-                await _reviewService.DeleteReviewAsync(id, _currentUserService.UserId);
-            }
-
-            return NoContent();
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return Forbid(ex.Message);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error deleting review {ReviewId}", id);
-            return StatusCode(500, new { message = "Greška pri brisanju recenzije." });
-        }
+        // Brisanje recenzija nije podržano — moderacija ide kroz sakrivanje/prikazivanje.
+        return BadRequest(new { message = "Brisanje recenzija nije omogućeno." });
     }
 
     [HttpPut("{id}/visibility")]
@@ -246,7 +204,7 @@ public class ReviewsController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(403, new { message = ex.Message });
         }
         catch (Exception ex)
         {

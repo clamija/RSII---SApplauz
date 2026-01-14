@@ -46,7 +46,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     try {
       // Get publishable key from backend (we'll need to add this endpoint or get it from config)
       // For now, we'll use a placeholder - in production, get this from backend
-      _publishableKey = 'pk_test_51SmxOIBNHXnq8dw5io0s6nIpgZQqJWmT3DGY9QtsiiOCkI5qjcamQBzbUu8lAZUnjgjn2gHTUEh9Zx5o6qj9c6lP003lAvzOAq';
+      _publishableKey = 'pk_test_your_stripe_publishable_key';
       
       if (_publishableKey != null) {
         Stripe.publishableKey = _publishableKey!;

@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return ConstrainedBox(
               constraints: BoxConstraints(maxWidth: maxLogoWidth),
               child: SizedBox(
-                height: 44,
+                height: 54,
                 child: Image.asset(
                   'assets/images/logo.png',
                   fit: BoxFit.fitHeight,

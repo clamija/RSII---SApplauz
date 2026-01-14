@@ -10,6 +10,7 @@ public class EmailService : IEmailService
 {
     private readonly SmtpSettings _settings;
     private readonly ILogger<EmailService> _logger;
+    private static readonly string[] AllowedRealRecipientSuffixes = { "@edu.fit.ba", "@gmail.com" };
 
     public EmailService(IOptions<SmtpSettings> settings, ILogger<EmailService> logger)
     {
@@ -35,14 +36,17 @@ public class EmailService : IEmailService
                 IsBodyHtml = true
             };
 
-            if (!string.IsNullOrEmpty(_settings.ForceRecipient))
-            {
-                message.To.Add(new MailAddress(_settings.ForceRecipient, _settings.FromName));
-            }
-            else
-            {
-                message.To.Add(new MailAddress(toEmail, toName));
-            }
+            // ForceRecipient je "test" fallback: ako je postavljen, ali korisnikov email završava na @edu.fit.ba ili @gmail.com,
+            // mail se šalje na korisnikov email (real recipient). U suprotnom ide na ForceRecipient.
+            var useRealRecipient = IsAllowedRealRecipient(toEmail);
+            var recipientEmail = (!string.IsNullOrWhiteSpace(_settings.ForceRecipient) && !useRealRecipient)
+                ? _settings.ForceRecipient
+                : toEmail;
+            var recipientName = (!string.IsNullOrWhiteSpace(_settings.ForceRecipient) && !useRealRecipient)
+                ? _settings.FromName
+                : toName;
+
+            message.To.Add(new MailAddress(recipientEmail, recipientName));
 
             // Add plain text alternative if provided
             if (!string.IsNullOrEmpty(plainTextBody))
@@ -53,7 +57,11 @@ public class EmailService : IEmailService
 
             await client.SendMailAsync(message);
 
-            _logger.LogInformation("Email sent successfully to {ToEmail} with subject: {Subject}", toEmail, subject);
+            _logger.LogInformation(
+                "Email sent successfully. OriginalTo={OriginalToEmail} ActualTo={ActualToEmail} Subject={Subject}",
+                toEmail,
+                recipientEmail,
+                subject);
             return true;
         }
         catch (Exception ex)
@@ -61,6 +69,12 @@ public class EmailService : IEmailService
             _logger.LogError(ex, "Failed to send email to {ToEmail} with subject: {Subject}", toEmail, subject);
             return false;
         }
+    }
+
+    private static bool IsAllowedRealRecipient(string? toEmail)
+    {
+        if (string.IsNullOrWhiteSpace(toEmail)) return false;
+        return AllowedRealRecipientSuffixes.Any(suffix => toEmail.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<bool> SendOrderCreatedEmailAsync(string toEmail, string toName, int orderId, decimal totalAmount)

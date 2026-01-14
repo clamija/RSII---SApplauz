@@ -16,6 +16,11 @@ class _InstitutionsManagementScreenState extends State<InstitutionsManagementScr
   String? _error;
   final TextEditingController _searchController = TextEditingController();
 
+  String _err(Object e) => e
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .trim();
+
   @override
   void initState() {
     super.initState();
@@ -341,7 +346,7 @@ class _InstitutionsManagementScreenState extends State<InstitutionsManagementScr
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Greška: ${e.toString()}'),
+                    content: Text(_err(e)),
                     backgroundColor: Colors.red,
                   ),
                 );

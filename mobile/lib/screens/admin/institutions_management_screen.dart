@@ -15,6 +15,11 @@ class _InstitutionsManagementScreenState extends State<InstitutionsManagementScr
   bool _isLoading = true;
   String? _errorMessage;
 
+  String _err(Object e) => e
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .trim();
+
   @override
   void initState() {
     super.initState();
@@ -73,7 +78,7 @@ class _InstitutionsManagementScreenState extends State<InstitutionsManagementScr
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Greška pri brisanju: ${e.toString()}')),
+            SnackBar(content: Text(_err(e))),
           );
         }
       }

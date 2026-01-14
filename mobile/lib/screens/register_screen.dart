@@ -62,21 +62,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       String errorMessage = 'Greška pri registraciji';
       final errorString = e.toString().toLowerCase();
       
-      if (errorString.contains('email') && errorString.contains('postoji')) {
-        errorMessage = 'Email već postoji';
-      } else if (errorString.contains('email') && !errorString.contains('postoji')) {
-        errorMessage = 'Email nije ispravan';
-      } else if (errorString.contains('password') || errorString.contains('lozinka')) {
-        errorMessage = 'Lozinka nije validna. Provjerite unos.';
-      } else if (errorString.contains('timeout') || 
-                 errorString.contains('5s') ||
-                 errorString.contains('nije odgovorio')) {
-        errorMessage = 'Server nije odgovorio na vrijeme (5s). Provjerite da li je backend API pokrenut i dostupan.';
-      } else if (errorString.contains('connection') ||
-                 errorString.contains('network') ||
-                 errorString.contains('nije moguće povezati')) {
-        errorMessage = 'Problem sa konekcijom. Provjerite da li je server pokrenut.';
-      }
+        if (errorString.contains('email') &&
+            (errorString.contains('postoji') ||
+                errorString.contains('already exists') ||
+                errorString.contains('exists'))) {
+          errorMessage = 'Email već postoji';
+        } else if (errorString.contains('email') &&
+            (errorString.contains('format') || errorString.contains('invalid'))) {
+          errorMessage = 'Email nije ispravan';
+        } else if (errorString.contains('password') || errorString.contains('lozinka')) {
+          errorMessage = 'Lozinka nije validna. Provjerite unos.';
+        } else if (errorString.contains('timeout') ||
+            errorString.contains('5s') ||
+            errorString.contains('nije odgovorio')) {
+          errorMessage = 'Server nije odgovorio na vrijeme (5s). Provjerite da li je backend API pokrenut i dostupan.';
+        } else if (errorString.contains('connection') ||
+            errorString.contains('network') ||
+            errorString.contains('nije moguće povezati')) {
+          errorMessage = 'Problem sa konekcijom. Provjerite da li je server pokrenut.';
+        }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -169,7 +173,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         return 'Molimo unesite email';
                       }
                       // Email format provjera
-                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                      final emailRegex = RegExp(r'^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$');
                       if (!emailRegex.hasMatch(value.trim())) {
                         return 'Molimo unesite validan email format (npr. korisnik@example.com)';
                       }

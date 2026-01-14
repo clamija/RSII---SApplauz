@@ -25,6 +25,10 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
   bool _isLoading = true;
   String? _error;
   int? _selectedShowId;
+  String _err(Object e) => e
+      .toString()
+      .replaceFirst(RegExp(r'^Exception:\s*'), '')
+      .trim();
   int? _selectedInstitutionId; // null => sve institucije (superadmin)
   bool _isSuperAdmin = false;
 
@@ -367,13 +371,10 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
                 } catch (e) {
                   if (!mounted) return;
                   final raw = e.toString();
-                  final msg = raw.replaceFirst('Exception: ', '');
                   final errorMessage =
-                      msg.contains('U tom terminu pozorište je već zauzeto.')
-                          ? 'U tom terminu pozorište je već zauzeto.'
-                          : (raw.contains('400') || raw.contains('Validation'))
-                              ? 'Greška pri validaciji. Provjerite unesene podatke.'
-                              : 'Greška: $msg';
+                      (raw.contains('400') || raw.contains('Validation'))
+                          ? 'Greška pri validaciji. Provjerite unesene podatke.'
+                          : _err(e);
                   
                   setDialogState(() {
                     validationError = errorMessage;
@@ -420,7 +421,7 @@ class _PerformancesManagementScreenState extends State<PerformancesManagementScr
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Greška: ${e.toString()}'),
+                    content: Text(_err(e)),
                     backgroundColor: Colors.red,
                   ),
                 );

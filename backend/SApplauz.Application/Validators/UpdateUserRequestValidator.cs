@@ -19,11 +19,11 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
             .NotEmpty().WithMessage("Nedostaje obavezno polje: Email")
             .EmailAddress().WithMessage("Email format nije validan.");
 
-        // Lozinka je opciona - validira se samo ako se unese nova lozinka
         When(x => !string.IsNullOrEmpty(x.NewPassword), () =>
         {
             RuleFor(x => x.NewPassword)
-                .NotEmpty().WithMessage("Nova lozinka je obavezna.");
+                .NotEmpty().WithMessage("Nova lozinka je obavezna.")
+                .MinimumLength(4).WithMessage("Lozinka mora imati najmanje 4 znaka.");
 
             RuleFor(x => x.CurrentPassword)
                 .NotEmpty().WithMessage("Trenutna lozinka je obavezna za promjenu lozinke.");

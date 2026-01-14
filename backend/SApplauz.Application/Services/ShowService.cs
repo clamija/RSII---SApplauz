@@ -62,17 +62,15 @@ public class ShowService : IShowService
 
     public async Task<ShowListResponse> GetShowsPublicAsync(ShowFilterRequest filter)
     {
-        // Public repertor: NEMA automatskog ograničenja po instituciji za Admin/Blagajnik
         return await GetShowsInternalAsync(filter, applyInstitutionRestriction: false);
     }
 
     private async Task<ShowListResponse> GetShowsInternalAsync(ShowFilterRequest filter, bool applyInstitutionRestriction)
     {
-        var query = _dbContext.Shows
-            .Include(s => s.Institution)
-            .Include(s => s.Genre)
-            .Include(s => s.Reviews.Where(r => r.IsVisible))
-            .AsQueryable();
+        // IMPORTANT:
+        // Ne radimo paginaciju direktno nad query-jem sa Include(Reviews) jer join može duplirati redove
+        // i poremetiti Count/Skip/Take (što je uzrokovalo "Stranica 1 od 2" sa samo par prikazanih predstava).
+        var baseQuery = _dbContext.Shows.AsQueryable();
 
         int? userInstitutionId = null;
         if (applyInstitutionRestriction)
@@ -80,45 +78,57 @@ public class ShowService : IShowService
             userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
             if (userInstitutionId.HasValue)
             {
-                query = query.Where(s => s.InstitutionId == userInstitutionId.Value);
+                baseQuery = baseQuery.Where(s => s.InstitutionId == userInstitutionId.Value);
             }
         }
 
-        // Apply filters
         if (filter.InstitutionId.HasValue)
         {
             if (applyInstitutionRestriction && userInstitutionId.HasValue && filter.InstitutionId.Value != userInstitutionId.Value)
             {
                 throw new UnauthorizedAccessException("Nemate pristup podacima za tu instituciju.");
             }
-            query = query.Where(s => s.InstitutionId == filter.InstitutionId.Value);
+            baseQuery = baseQuery.Where(s => s.InstitutionId == filter.InstitutionId.Value);
         }
 
         if (filter.GenreId.HasValue)
         {
-            query = query.Where(s => s.GenreId == filter.GenreId.Value);
+            baseQuery = baseQuery.Where(s => s.GenreId == filter.GenreId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
         {
             var searchTerm = filter.SearchTerm.ToLower();
-            query = query.Where(s => s.Title.ToLower().Contains(searchTerm));
+            baseQuery = baseQuery.Where(s => s.Title.ToLower().Contains(searchTerm));
         }
 
         if (filter.IsActive.HasValue)
         {
-            query = query.Where(s => s.IsActive == filter.IsActive.Value);
+            baseQuery = baseQuery.Where(s => s.IsActive == filter.IsActive.Value);
         }
 
-        var totalCount = await query.CountAsync();
+        var totalCount = await baseQuery.CountAsync();
 
-        var shows = await query
+        var showIds = await baseQuery
             .OrderBy(s => s.Title)
             .Skip((filter.PageNumber - 1) * filter.PageSize)
             .Take(filter.PageSize)
+            .Select(s => s.Id)
             .ToListAsync();
 
-        var showDtos = shows.Select(show =>
+        var shows = await _dbContext.Shows
+            .Where(s => showIds.Contains(s.Id))
+            .Include(s => s.Institution)
+            .Include(s => s.Genre)
+            .Include(s => s.Reviews.Where(r => r.IsVisible))
+            .AsNoTracking()
+            .ToListAsync();
+
+        // Očuvaj isti redoslijed kao ID lista (paging order)
+        var showById = shows.ToDictionary(s => s.Id);
+        var orderedShows = showIds.Where(showById.ContainsKey).Select(id => showById[id]).ToList();
+
+        var showDtos = orderedShows.Select(show =>
         {
             var dto = _mapper.Map<ShowDto>(show);
             dto.InstitutionName = show.Institution.Name;
@@ -149,21 +159,18 @@ public class ShowService : IShowService
 
     public async Task<ShowDto> CreateShowAsync(CreateShowRequest request)
     {
-        // Provjeri ograničenje po instituciji
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue && request.InstitutionId != userInstitutionId.Value)
         {
             throw new UnauthorizedAccessException("Možete kreirati predstave samo za svoju instituciju.");
         }
 
-        // Verify institution exists
         var institution = await _dbContext.Institutions.FindAsync(request.InstitutionId);
         if (institution == null)
         {
             throw new KeyNotFoundException($"Institution with id {request.InstitutionId} not found.");
         }
 
-        // Verify genre exists
         var genre = await _dbContext.Genres.FindAsync(request.GenreId);
         if (genre == null)
         {
@@ -183,7 +190,6 @@ public class ShowService : IShowService
     {
         var query = _dbContext.Shows.AsQueryable();
         
-        // Filtriranje po instituciji ako korisnik ima ograničenje
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -197,27 +203,23 @@ public class ShowService : IShowService
             throw new KeyNotFoundException($"Show with id {id} not found.");
         }
 
-        // Provjeri da li Admin pokušava promijeniti instituciju
         if (userInstitutionId.HasValue && request.InstitutionId != userInstitutionId.Value)
         {
             throw new UnauthorizedAccessException("Možete ažurirati predstave samo za svoju instituciju.");
         }
 
-        // Verify institution exists
         var institution = await _dbContext.Institutions.FindAsync(request.InstitutionId);
         if (institution == null)
         {
             throw new KeyNotFoundException($"Institution with id {request.InstitutionId} not found.");
         }
 
-        // Verify genre exists
         var genre = await _dbContext.Genres.FindAsync(request.GenreId);
         if (genre == null)
         {
             throw new KeyNotFoundException($"Genre with id {request.GenreId} not found.");
         }
 
-        // Update show properties
         show.Title = request.Title;
         show.Description = request.Description;
         show.DurationMinutes = request.DurationMinutes;
@@ -239,7 +241,6 @@ public class ShowService : IShowService
             .Include(s => s.Reviews)
             .AsQueryable();
         
-        // Filtriranje po instituciji ako korisnik ima ograničenje
         var userInstitutionId = await _currentUserService.GetInstitutionIdForCurrentUserAsync();
         if (userInstitutionId.HasValue)
         {
@@ -252,9 +253,7 @@ public class ShowService : IShowService
         {
             throw new KeyNotFoundException($"Show with id {id} not found.");
         }
-
-        // Ako postoje povezani termini, ne radimo hard-delete (FK/istorija),
-        // već "soft delete" (deaktivacija) da se predstava više ne prikazuje u aktivnim listama.
+        
         if (show.Performances.Any())
         {
             show.IsActive = false;
