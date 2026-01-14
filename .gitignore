@@ -87,3 +87,6 @@ yarn-error.log*
 *.temp
 *~
 
+# Build archives
+build-*.zip
+*.zip
